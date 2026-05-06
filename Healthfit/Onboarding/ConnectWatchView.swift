@@ -1,0 +1,118 @@
+//
+//  ConnectWatchView.swift
+//  Apple Watch / HealthKit connect step. The "Connect" button is mocked —
+//  in production it would request HKHealthStore authorization for HRV,
+//  sleep stages, RHR, and workout types.
+//
+
+import SwiftUI
+
+struct ConnectWatchView: View {
+    @EnvironmentObject var appState: AppState
+    let next: () -> Void
+
+    @State private var isConnecting = false
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Step 3 of 3")
+                    .eyebrow()
+                    .padding(.top, 16)
+
+                Text("Connect Apple Watch")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(Theme.text)
+                    .padding(.top, 6)
+
+                Text("This is what makes daily adjustments possible. We read overnight HRV, sleep stages, and resting heart rate. We don't share your health data with anyone.")
+                    .font(.system(size: 15))
+                    .foregroundColor(Theme.textMuted)
+                    .lineSpacing(3)
+                    .padding(.top, 6)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(spacing: 10) {
+                    permissionRow(icon: "❤️",  title: "Heart rate variability", subtitle: "Daily readiness signal")
+                    permissionRow(icon: "🌙",  title: "Sleep stages",            subtitle: "Recovery context")
+                    permissionRow(icon: "💓",  title: "Resting heart rate",     subtitle: "Baseline tracking")
+                    permissionRow(icon: "🏃",  title: "Workouts",                 subtitle: "Two-way sync")
+                }
+                .padding(.top, 22)
+
+                Spacer()
+
+                if appState.watchConnected {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(Theme.green)
+                        Text("Connected")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.green)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 8)
+
+                    PrimaryButton(title: "Continue", tint: Theme.green, action: next)
+
+                } else {
+                    PrimaryButton(
+                        title: isConnecting ? "Requesting access..." : "Connect Apple Watch",
+                        tint: Theme.green,
+                        action: connect
+                    )
+                    .disabled(isConnecting)
+
+                    Button("I'll do this later") { next() }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Theme.textMuted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 14)
+                }
+
+                Spacer().frame(height: 30)
+            }
+            .padding(.horizontal, 22)
+        }
+    }
+
+    private func permissionRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 14) {
+            Text(icon)
+                .font(.system(size: 22))
+                .frame(width: 44, height: 44)
+                .background(Theme.card2)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.textMuted)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func connect() {
+        isConnecting = true
+        // TODO: HealthKit
+        // HKHealthStore().requestAuthorization(toShare: nil, read: readTypes) { _, _ in … }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            withAnimation { appState.watchConnected = true }
+            isConnecting = false
+        }
+    }
+}
+
+#Preview {
+    ConnectWatchView(next: {}).environmentObject(AppState())
+}
