@@ -17,7 +17,7 @@ final class AppState: ObservableObject {
     // MARK: Onboarding
 
     @Published var hasOnboarded: Bool = false
-    @Published var selectedGoal: FitnessGoal? = nil
+    @Published var selectedGoals: Set<FitnessGoal> = []
     @Published var watchConnected: Bool = false
 
     // MARK: User & plan
@@ -48,7 +48,7 @@ final class AppState: ObservableObject {
 
     func resetOnboarding() {
         hasOnboarded = false
-        selectedGoal = nil
+        selectedGoals = []
         watchConnected = false
     }
 

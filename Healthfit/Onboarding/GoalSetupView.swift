@@ -23,7 +23,7 @@ struct GoalSetupView: View {
                     .foregroundColor(Theme.text)
                     .padding(.top, 6)
 
-                Text("Pick the closest fit. You can add a date and refine in the Plan tab.")
+                Text("Pick everything that applies. You can add dates and refine in the Plan tab.")
                     .font(.system(size: 15))
                     .foregroundColor(Theme.textMuted)
                     .padding(.top, 6)
@@ -35,8 +35,14 @@ struct GoalSetupView: View {
                         ForEach(FitnessGoal.allCases) { goal in
                             GoalCard(
                                 goal: goal,
-                                selected: appState.selectedGoal == goal,
-                                tap: { appState.selectedGoal = goal }
+                                selected: appState.selectedGoals.contains(goal),
+                                tap: {
+                                    if appState.selectedGoals.contains(goal) {
+                                        appState.selectedGoals.remove(goal)
+                                    } else {
+                                        appState.selectedGoals.insert(goal)
+                                    }
+                                }
                             )
                         }
                     }
@@ -45,12 +51,12 @@ struct GoalSetupView: View {
                 }
 
                 PrimaryButton(
-                    title: appState.selectedGoal == nil ? "Pick a goal to continue" : "Continue",
-                    tint: appState.selectedGoal == nil ? Theme.card2 : Theme.green
+                    title: appState.selectedGoals.isEmpty ? "Pick a goal to continue" : "Continue",
+                    tint: appState.selectedGoals.isEmpty ? Theme.card2 : Theme.green
                 ) {
-                    if appState.selectedGoal != nil { next() }
+                    if !appState.selectedGoals.isEmpty { next() }
                 }
-                .disabled(appState.selectedGoal == nil)
+                .disabled(appState.selectedGoals.isEmpty)
 
                 Spacer().frame(height: 30)
             }
