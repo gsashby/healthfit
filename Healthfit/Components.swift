@@ -148,3 +148,25 @@ struct MacroBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+// MARK: - Profile field
+
+struct ProfileField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var keyboard: UIKeyboardType = .default
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).eyebrow()
+            TextField(placeholder, text: $text)
+                .keyboardType(keyboard)
+                .font(.system(size: 16))
+                .foregroundColor(Theme.text)
+                .padding(14)
+                .background(Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+}

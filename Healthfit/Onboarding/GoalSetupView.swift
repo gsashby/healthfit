@@ -14,7 +14,7 @@ struct GoalSetupView: View {
             Theme.bg.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Step 2 of 3")
+                Text("Step 3 of 4")
                     .eyebrow()
                     .padding(.top, 16)
 
@@ -108,5 +108,7 @@ private struct GoalCard: View {
 }
 
 #Preview {
-    GoalSetupView(next: {}).environmentObject(AppState())
+    GoalSetupView(next: {})
+        .environmentObject(AppState())
+        .environmentObject(AuthService())
 }

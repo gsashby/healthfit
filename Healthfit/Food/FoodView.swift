@@ -52,9 +52,15 @@ struct FoodView: View {
         }
     }
 
+    private var todayEyebrow: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMMM d"
+        return "Today · \(fmt.string(from: Date.now))"
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Today · April 29").eyebrow()
+            Text(todayEyebrow).eyebrow()
             Text("Eat")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(Theme.text)

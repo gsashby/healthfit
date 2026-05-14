@@ -35,9 +35,24 @@ struct PlanGeneratedView: View {
         }
     }
 
+    /// "Your week · May 12 – May 18" computed from the current Mon–Sun week
+    private var weekRangeLabel: String {
+        let cal = Calendar.current
+        let today = Date.now
+        let weekday = cal.component(.weekday, from: today) // 1=Sun, 2=Mon …
+        let daysFromMonday = (weekday == 1) ? 6 : weekday - 2
+        guard let monday = cal.date(byAdding: .day, value: -daysFromMonday, to: today),
+              let sunday = cal.date(byAdding: .day, value: 6, to: monday) else {
+            return "Your week"
+        }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMM d"
+        return "Your week · \(fmt.string(from: monday)) – \(fmt.string(from: sunday))"
+    }
+
     private var hero: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Your week · Apr 27 – May 3")
+            Text(weekRangeLabel)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(Theme.blue)
                 .textCase(.uppercase)
@@ -106,6 +121,13 @@ struct PlanGeneratedView: View {
 struct DayCard: View {
     let day: PlanDay
 
+    /// True when day.weekday matches today's actual weekday abbreviation (e.g. "Wed").
+    private var isActuallyToday: Bool {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEE"
+        return fmt.string(from: Date.now) == day.weekday
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             // Date stamp
@@ -116,7 +138,7 @@ struct DayCard: View {
                     .tracking(0.6)
                 Text(String(format: "%02d", day.dayNumber))
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(day.isToday ? Theme.blue : Theme.text)
+                    .foregroundColor(isActuallyToday ? Theme.blue : Theme.text)
             }
             .frame(width: 44)
 
@@ -155,7 +177,7 @@ struct DayCard: View {
         .background(Theme.card)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(day.isToday ? Theme.blue : .clear, lineWidth: 1)
+                .stroke(isActuallyToday ? Theme.blue : .clear, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }

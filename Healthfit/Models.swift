@@ -6,6 +6,7 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 
 // MARK: - User
 
@@ -194,4 +195,31 @@ struct DietaryProfile: Codable {
     var allergies: [String]
     var preferences: [String]   // "vegetarian", "high-protein", etc.
     var dislikes: [String]
+}
+
+// MARK: - Persistence
+
+@Model
+final class PersistedProfile {
+    var name: String = ""
+    var age: Int = 0
+    var sexAtBirth: String = "Male"
+    var weightLb: Double = 0
+    var goalWeightLb: Double = 0
+    var planDescription: String = ""
+    var selectedGoalIDs: [String] = []
+    var hasOnboarded: Bool = false
+    var watchConnected: Bool = false
+
+    init() {}
+
+    var asUserProfile: UserProfile {
+        UserProfile(name: name, age: age, sexAtBirth: sexAtBirth,
+                    weightLb: weightLb, goalWeightLb: goalWeightLb,
+                    description: planDescription)
+    }
+
+    var selectedGoals: Set<FitnessGoal> {
+        Set(selectedGoalIDs.compactMap { FitnessGoal(rawValue: $0) })
+    }
 }

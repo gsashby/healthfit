@@ -8,10 +8,19 @@ import SwiftUI
 
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var authService: AuthService
+    @State private var showSettings = false
 
     private var snapshot: ReadinessSnapshot { appState.readinessSnapshot }
     private var accent: Color { Theme.accent(for: snapshot.state) }
     private var accentSoft: Color { Theme.accentSoft(for: snapshot.state) }
+
+    /// "EEEE · MMMM d" from today's date, e.g. "Wednesday · May 14"
+    private var todayLabel: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEEE · MMMM d"
+        return fmt.string(from: Date.now)
+    }
 
     var body: some View {
         ZStack {
@@ -32,14 +41,19 @@ struct TodayView: View {
                 .padding(.bottom, 28)
             }
         }
-        .toolbar { moodMenu }
+        .toolbar { toolbarItems }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(appState)
+                .environmentObject(authService)
+        }
     }
 
     // MARK: Header
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Wednesday · April 29")
+            Text(todayLabel)
                 .eyebrow()
             Text("Morning, \(appState.user.name)")
                 .font(.system(size: 28, weight: .bold))
@@ -183,10 +197,10 @@ struct TodayView: View {
         .padding(.top, 6)
     }
 
-    // MARK: Demo: mood menu
+    // MARK: Toolbar — demo mood menu + settings gear
 
     @ToolbarContentBuilder
-    private var moodMenu: some ToolbarContent {
+    private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Section("Demo · Simulated readiness") {
@@ -204,6 +218,14 @@ struct TodayView: View {
                 }
             } label: {
                 Image(systemName: "slider.horizontal.3")
+                    .foregroundColor(Theme.text)
+            }
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
                     .foregroundColor(Theme.text)
             }
         }
@@ -292,5 +314,6 @@ struct FlowLayout: Layout {
         TodayView()
     }
     .environmentObject(AppState())
+    .environmentObject(AuthService())
     .preferredColorScheme(.dark)
 }

@@ -18,7 +18,7 @@ struct ConnectWatchView: View {
             Theme.bg.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Step 3 of 3")
+                Text("Step 4 of 4")
                     .eyebrow()
                     .padding(.top, 16)
 
@@ -107,7 +107,7 @@ struct ConnectWatchView: View {
         // TODO: HealthKit
         // HKHealthStore().requestAuthorization(toShare: nil, read: readTypes) { _, _ in … }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation { appState.watchConnected = true }
+            withAnimation { appState.setWatchConnected(true) }
             isConnecting = false
         }
     }
