@@ -392,14 +392,16 @@ struct FlowLayout: Layout {
 
 private struct WorkoutSet: Identifiable {
     let id = UUID()
-    let targetReps: String      // plan target e.g. "6", "AMRAP"
+    let targetReps: String
     var weightLbs: Double = 0
-    var completedReps: Int      // starts at targetReps, user can change
-    var rir: Int? = nil         // 0 = failure, 1 = hard, 2-3 = good, 4+ = easy
+    var completedReps: Int
+    var rir: Int? = nil
     var isLogged: Bool = false
+    var isWarmup: Bool = false   // warmup sets: lighter, no RIR required, shown as W1/W2
+    var isSkipped: Bool = false  // set was skipped when user skipped the exercise
 
     var rirLabel: String? {
-        guard let r = rir else { return nil }
+        guard let r = rir, !isWarmup else { return nil }
         switch r {
         case 0:     return "Max (0 RIR)"
         case 1:     return "Hard (1 RIR)"
@@ -414,41 +416,70 @@ private struct WorkoutExercise: Identifiable {
     let name: String
     let description: String
     var sets: [WorkoutSet]
+    var isSkipped: Bool = false   // exercise was explicitly skipped
 
-    var completedSetCount: Int { sets.filter(\.isLogged).count }
-    var isFullyLogged: Bool    { sets.allSatisfy(\.isLogged) }
+    // Warmup / working split
+    var warmupSets: [WorkoutSet]  { sets.filter(\.isWarmup)  }
+    var workingSets: [WorkoutSet] { sets.filter { !$0.isWarmup } }
 
-    /// First set that is logged but has no RIR rating yet.
-    var awaitingRIRIdx: Int? { sets.firstIndex { $0.isLogged && $0.rir == nil } }
+    var completedWarmupCount: Int  { warmupSets.filter(\.isLogged).count }
+    var completedWorkingCount: Int { workingSets.filter(\.isLogged).count }
+    var totalWorkingCount: Int     { workingSets.count }
 
-    /// First set that hasn't been logged yet.
-    var nextSetIdx: Int? { sets.firstIndex { !$0.isLogged } }
+    var isFullyLogged: Bool {
+        isSkipped || sets.allSatisfy { $0.isLogged || $0.isSkipped }
+    }
 
-    /// Weight to pre-fill for the next unlogged set, based on the last rated set's RIR.
+    /// First logged working set awaiting a RIR rating (warmup sets skip RIR).
+    var awaitingRIRIdx: Int? {
+        sets.firstIndex { $0.isLogged && $0.rir == nil && !$0.isWarmup && !$0.isSkipped }
+    }
+
+    /// First set not yet logged and not skipped.
+    var nextSetIdx: Int? { sets.firstIndex { !$0.isLogged && !$0.isSkipped } }
+
+    /// Suggested weight for the next working set based on the last rated working set's RIR.
     var suggestedNextWeight: Double {
-        guard let last = sets.filter(\.isLogged).last else { return 0 }
+        guard let last = workingSets.filter(\.isLogged).last else { return 0 }
         let w = last.weightLbs
         switch last.rir {
-        case .none:   return w
-        case 0:       return max(0, (w * 0.9 / 2.5).rounded() * 2.5)  // −10 %, nearest 2.5
-        case 1:       return w                                           // hold
-        case 2, 3:    return w + 5                                       // +5 lbs
-        default:      return w + 10                                      // +10 lbs
+        case .none:  return w
+        case 0:      return max(0, (w * 0.9 / 2.5).rounded() * 2.5)
+        case 1:      return w
+        case 2, 3:   return w + 5
+        default:     return w + 10
         }
     }
 
-    /// Compact weight string for collapsed display, e.g. "135 lbs" or "135/140/140 lbs".
+    /// Default warmup weight: 50 % of first working-set weight, rounded to nearest 5.
+    var defaultWarmupWeight: Double {
+        let w = workingSets.first?.weightLbs ?? 0
+        return w > 0 ? max(0, (w * 0.5 / 5).rounded() * 5) : 0
+    }
+
+    /// Compact weight summary for collapsed display (working sets only).
     var weightSummary: String {
-        let ws = sets.filter(\.isLogged).map { Int($0.weightLbs) }
+        let ws = workingSets.filter(\.isLogged).map { Int($0.weightLbs) }
         guard !ws.isEmpty else { return "" }
         return Set(ws).count == 1 ? "\(ws[0]) lbs" : ws.map { "\($0)" }.joined(separator: "/") + " lbs"
     }
 
-    /// Compact reps string for collapsed display, e.g. "6 reps" or "6/6/5 reps".
     var repsSummary: String {
-        let rs = sets.filter(\.isLogged).map { $0.completedReps }
+        let rs = workingSets.filter(\.isLogged).map { $0.completedReps }
         guard !rs.isEmpty else { return "" }
         return Set(rs).count == 1 ? "\(rs[0]) reps" : rs.map { "\($0)" }.joined(separator: "/") + " reps"
+    }
+
+    /// Display number for a set at the given index (warmup → "W1"; working → 1-based count).
+    func setDisplayNum(at index: Int) -> String {
+        let set = sets[index]
+        if set.isWarmup {
+            let wNum = sets[..<index].filter(\.isWarmup).count + 1
+            return "W\(wNum)"
+        } else {
+            let num = sets[..<index].filter { !$0.isWarmup }.count + 1
+            return "\(num)"
+        }
     }
 }
 
@@ -634,9 +665,15 @@ struct WorkoutSessionView: View {
 
             // Title + progress
             VStack(alignment: .leading, spacing: 4) {
-                Text("Active · \(ex.completedSetCount) of \(ex.sets.count) sets done")
-                    .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.blue)
-                    .textCase(.uppercase).tracking(0.5)
+                Group {
+                    if ex.completedWarmupCount < ex.warmupSets.count {
+                        Text("Warmup \(ex.completedWarmupCount + 1) of \(ex.warmupSets.count) · then \(ex.totalWorkingCount) working sets")
+                    } else {
+                        Text("Active · \(ex.completedWorkingCount) of \(ex.totalWorkingCount) working sets done")
+                    }
+                }
+                .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.blue)
+                .textCase(.uppercase).tracking(0.5)
                 Text(ex.name).font(.system(size: 19, weight: .bold)).foregroundColor(Theme.text)
             }
 
@@ -653,8 +690,9 @@ struct WorkoutSessionView: View {
                     Text("Completed")
                         .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.textMuted)
                         .textCase(.uppercase).tracking(0.5)
-                    ForEach(Array(ex.sets.prefix(ex.completedSetCount).enumerated()), id: \.offset) { i, s in
-                        loggedSetRow(num: i + 1, set: s)
+                    ForEach(Array(ex.sets.filter(\.isLogged).enumerated()), id: \.offset) { i, s in
+                        let globalIdx = ex.sets.firstIndex(where: { $0.id == s.id }) ?? i
+                        loggedSetRow(displayNum: ex.setDisplayNum(at: globalIdx), set: s)
                     }
                 }
                 Rectangle().fill(Theme.separator).frame(height: 1)
@@ -666,6 +704,29 @@ struct WorkoutSessionView: View {
             } else if let nextIdx = ex.nextSetIdx {
                 setInputSection(exIdx: idx, setIdx: nextIdx)
             }
+
+            Rectangle().fill(Theme.separator).frame(height: 1)
+
+            // Secondary actions: modify sets, add warmup, skip exercise
+            HStack(spacing: 6) {
+                modifyActionButton("Add set", icon: "plus.square", color: Theme.blue) {
+                    addSet(to: idx)
+                }
+                modifyActionButton("Remove set", icon: "minus.square", color: Theme.textMuted) {
+                    removeLastSet(from: idx)
+                }
+                .disabled(exercises[idx].workingSets.filter { !$0.isLogged }.count <= 1)
+
+                modifyActionButton("Warmup set", icon: "figure.strengthtraining.traditional", color: Theme.orange) {
+                    addWarmupSet(to: idx)
+                }
+
+                Spacer()
+
+                modifyActionButton("Skip", icon: "forward.end.fill", color: Theme.red) {
+                    skipExercise(idx: idx)
+                }
+            }
         }
         .padding(18)
         .background(Theme.card)
@@ -676,24 +737,35 @@ struct WorkoutSessionView: View {
         .animation(.spring(response: 0.35), value: ex.nextSetIdx)
     }
 
-    private func loggedSetRow(num: Int, set: WorkoutSet) -> some View {
+    private func loggedSetRow(displayNum: String, set: WorkoutSet) -> some View {
         HStack(spacing: 0) {
-            Text("Set \(num)").font(.system(size: 12, weight: .medium)).foregroundColor(Theme.textMuted)
-                .frame(width: 44, alignment: .leading)
-            Group {
-                Text(set.weightLbs > 0 ? "\(Int(set.weightLbs)) lbs" : "BW")
-                    .font(.system(size: 14, weight: .semibold)).foregroundColor(Theme.text)
-                Text(" × ").font(.system(size: 13)).foregroundColor(Theme.textMuted)
-                Text("\(set.completedReps) reps").font(.system(size: 14, weight: .semibold)).foregroundColor(Theme.text)
+            // Warmup sets shown with orange "W" badge; working sets in muted grey
+            Text(displayNum)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(set.isWarmup ? Theme.orange : Theme.textMuted)
+                .frame(width: 36, alignment: .leading)
+            if set.isWarmup {
+                Text("WARM").font(.system(size: 9, weight: .bold))
+                    .foregroundColor(Theme.orange).padding(.trailing, 4)
+            }
+            Text(set.weightLbs > 0 ? "\(Int(set.weightLbs)) lbs" : "BW")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(set.isWarmup ? Theme.textMuted : Theme.text)
+            Text(" × ").font(.system(size: 13)).foregroundColor(Theme.textMuted)
+            Text("\(set.completedReps) reps")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(set.isWarmup ? Theme.textMuted : Theme.text)
+            if !set.isWarmup {
                 Text("  (target \(set.targetReps))").font(.system(size: 11)).foregroundColor(Theme.textMuted)
             }
             Spacer()
             if let label = set.rirLabel {
                 Text(label).font(.system(size: 11)).foregroundColor(Theme.textMuted)
-            } else {
+            } else if !set.isWarmup {
                 Text("rate ↓").font(.system(size: 11)).foregroundColor(Theme.yellow)
             }
-            Image(systemName: "checkmark.circle.fill").foregroundColor(Theme.green)
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(set.isWarmup ? Theme.orange.opacity(0.6) : Theme.green)
                 .font(.system(size: 14)).padding(.leading, 8)
         }
     }
@@ -704,9 +776,19 @@ struct WorkoutSessionView: View {
         let ex = exercises[exIdx]
         let set = ex.sets[setIdx]
         return VStack(alignment: .leading, spacing: 14) {
-            Text("Set \(setIdx + 1) of \(ex.sets.count)  ·  target \(set.targetReps) reps")
-                .font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.textMuted)
-                .textCase(.uppercase).tracking(0.5)
+            Group {
+                if set.isWarmup {
+                    let wNum = ex.sets[..<setIdx].filter(\.isWarmup).count + 1
+                    Text("Warmup \(wNum) of \(ex.warmupSets.count)  ·  lighter weight, no RIR needed")
+                        .foregroundColor(Theme.orange)
+                } else {
+                    let wNum = ex.sets[..<setIdx].filter { !$0.isWarmup }.count + 1
+                    Text("Set \(wNum) of \(ex.totalWorkingCount)  ·  target \(set.targetReps) reps")
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .textCase(.uppercase).tracking(0.5)
 
             // Weight stepper
             HStack(spacing: 0) {
@@ -761,16 +843,22 @@ struct WorkoutSessionView: View {
                 }
             }
 
-            // Log button
+            // Log button — warmup sets skip RIR automatically
+            let isWarmupSet = exercises[exIdx].sets[setIdx].isWarmup
+            let workingNum = exercises[exIdx].sets[..<setIdx].filter { !$0.isWarmup }.count + 1
+            let warmupNum2 = exercises[exIdx].sets[..<setIdx].filter { $0.isWarmup }.count + 1
             Button {
                 withAnimation(.spring(response: 0.3)) {
                     exercises[exIdx].sets[setIdx].isLogged = true
+                    if isWarmupSet {
+                        exercises[exIdx].sets[setIdx].rir = 2 // warmup: auto-rate as Good so RIR picker skips
+                    }
                 }
             } label: {
-                Text("Log set \(setIdx + 1)")
+                Text(isWarmupSet ? "Log warmup W\(warmupNum2)" : "Log set \(workingNum)")
                     .font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
                     .frame(maxWidth: .infinity).padding(.vertical, 14)
-                    .background(Theme.blue)
+                    .background(isWarmupSet ? Theme.orange : Theme.blue)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
@@ -867,20 +955,35 @@ struct WorkoutSessionView: View {
 
     private func doneRow(idx: Int) -> some View {
         let ex = exercises[idx]
+        let skipped = ex.isSkipped
         return HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill").foregroundColor(Theme.green).font(.system(size: 20))
+            Image(systemName: skipped ? "forward.end.fill" : "checkmark.circle.fill")
+                .foregroundColor(skipped ? Theme.textMuted : Theme.green)
+                .font(.system(size: 20))
             VStack(alignment: .leading, spacing: 2) {
-                Text(ex.name).font(.system(size: 14, weight: .semibold)).foregroundColor(Theme.text)
-                if !ex.weightSummary.isEmpty {
-                    Text("\(ex.weightSummary) · \(ex.repsSummary)")
-                        .font(.system(size: 12)).foregroundColor(Theme.textMuted)
+                Text(ex.name).font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(skipped ? Theme.textMuted : Theme.text)
+                if skipped {
+                    Text("Skipped").font(.system(size: 12)).foregroundColor(Theme.textMuted)
+                } else {
+                    let warmupDone = ex.completedWarmupCount
+                    let parts = [
+                        warmupDone > 0 ? "\(warmupDone)W warmup" : nil,
+                        !ex.weightSummary.isEmpty ? "\(ex.weightSummary) · \(ex.repsSummary)" : nil
+                    ].compactMap { $0 }
+                    if !parts.isEmpty {
+                        Text(parts.joined(separator: " · "))
+                            .font(.system(size: 12)).foregroundColor(Theme.textMuted)
+                    }
                 }
             }
             Spacer()
-            Text("\(ex.sets.count) sets").font(.system(size: 12)).foregroundColor(Theme.textMuted)
+            if !skipped {
+                Text("\(ex.completedWorkingCount) sets").font(.system(size: 12)).foregroundColor(Theme.textMuted)
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(Theme.green.opacity(0.06))
+        .background(skipped ? Theme.card : Theme.green.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -966,6 +1069,74 @@ struct WorkoutSessionView: View {
             let defaultReps = Int(repsStr) ?? 8
             let sets = (0..<setCount).map { _ in WorkoutSet(targetReps: repsStr, completedReps: defaultReps) }
             return WorkoutExercise(name: name, description: exerciseCue(for: name), sets: sets)
+        }
+    }
+
+    // MARK: Set modification actions
+
+    /// Small labelled icon button used in the secondary action row.
+    private func modifyActionButton(_ label: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 17))
+                Text(label).font(.system(size: 9, weight: .semibold)).multilineTextAlignment(.center)
+            }
+            .foregroundColor(color)
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(color.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+    }
+
+    /// Appends one more working set (same target reps as the last working set).
+    private func addSet(to exIdx: Int) {
+        let ex = exercises[exIdx]
+        let template = ex.workingSets.last
+        let newSet = WorkoutSet(
+            targetReps: template?.targetReps ?? "8",
+            completedReps: Int(template?.targetReps ?? "8") ?? 8
+        )
+        withAnimation(.spring(response: 0.3)) {
+            exercises[exIdx].sets.append(newSet)
+        }
+    }
+
+    /// Removes the last unlogged working set (minimum 1 working set remains).
+    private func removeLastSet(from exIdx: Int) {
+        let indices = exercises[exIdx].sets.indices.filter {
+            !exercises[exIdx].sets[$0].isWarmup && !exercises[exIdx].sets[$0].isLogged
+        }
+        guard indices.count > 1, let last = indices.last else { return }
+        withAnimation(.spring(response: 0.3)) {
+            exercises[exIdx].sets.remove(at: last)
+        }
+    }
+
+    /// Inserts a warmup set before the working sets (suggested at 50 % of working weight).
+    private func addWarmupSet(to exIdx: Int) {
+        let ex = exercises[exIdx]
+        let suggested = ex.defaultWarmupWeight
+        let reps = ex.workingSets.first?.targetReps ?? "8"
+        let warmup = WorkoutSet(
+            targetReps: reps,
+            weightLbs: suggested,
+            completedReps: Int(reps) ?? 8,
+            isWarmup: true
+        )
+        // Insert before first working set
+        let insertAt = ex.sets.firstIndex(where: { !$0.isWarmup }) ?? ex.sets.count
+        withAnimation(.spring(response: 0.3)) {
+            exercises[exIdx].sets.insert(warmup, at: insertAt)
+        }
+    }
+
+    /// Marks all remaining unlogged sets as skipped and flags the exercise as skipped.
+    private func skipExercise(idx: Int) {
+        withAnimation(.spring(response: 0.3)) {
+            for i in exercises[idx].sets.indices where !exercises[idx].sets[i].isLogged {
+                exercises[idx].sets[i].isSkipped = true
+            }
+            exercises[idx].isSkipped = true
         }
     }
 
@@ -1070,28 +1241,44 @@ private struct WorkoutSummaryView: View {
     }
 
     private func exerciseBreakdown(ex: WorkoutExercise) -> some View {
-        let logged = ex.sets.filter(\.isLogged)
+        let loggedSets = ex.sets.filter(\.isLogged)
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(ex.name).font(.system(size: 15, weight: .semibold)).foregroundColor(Theme.text)
+                Text(ex.name).font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(ex.isSkipped ? Theme.textMuted : Theme.text)
                 Spacer()
-                Image(systemName: logged.count == ex.sets.count ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(logged.count == ex.sets.count ? Theme.green : Theme.textMuted)
-                    .font(.system(size: 16))
+                if ex.isSkipped {
+                    Text("Skipped").font(.system(size: 12)).foregroundColor(Theme.textMuted)
+                } else {
+                    Image(systemName: ex.isFullyLogged ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(ex.isFullyLogged ? Theme.green : Theme.textMuted)
+                        .font(.system(size: 16))
+                }
             }
-            if logged.isEmpty {
+            if loggedSets.isEmpty && !ex.isSkipped {
                 Text("Not started").font(.system(size: 13)).foregroundColor(Theme.textMuted)
-            } else {
+            } else if !loggedSets.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
-                    ForEach(Array(logged.enumerated()), id: \.offset) { i, s in
+                    ForEach(Array(loggedSets.enumerated()), id: \.offset) { i, s in
+                        let globalIdx = ex.sets.firstIndex(where: { $0.id == s.id }) ?? i
+                        let dispNum = ex.setDisplayNum(at: globalIdx)
                         HStack(spacing: 0) {
-                            Text("Set \(i + 1)").font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Theme.textMuted).frame(width: 44, alignment: .leading)
+                            Text(dispNum).font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(s.isWarmup ? Theme.orange : Theme.textMuted)
+                                .frame(width: 36, alignment: .leading)
+                            if s.isWarmup {
+                                Text("W ").font(.system(size: 10, weight: .bold)).foregroundColor(Theme.orange)
+                            }
                             Text(s.weightLbs > 0 ? "\(Int(s.weightLbs)) lbs" : "BW")
-                                .font(.system(size: 14, weight: .semibold)).foregroundColor(Theme.text)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(s.isWarmup ? Theme.textMuted : Theme.text)
                             Text(" × ").font(.system(size: 13)).foregroundColor(Theme.textMuted)
-                            Text("\(s.completedReps) reps  (target \(s.targetReps))")
-                                .font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.text)
+                            Text("\(s.completedReps) reps")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(s.isWarmup ? Theme.textMuted : Theme.text)
+                            if !s.isWarmup {
+                                Text("  (tgt \(s.targetReps))").font(.system(size: 11)).foregroundColor(Theme.textMuted)
+                            }
                             Spacer()
                             if let label = s.rirLabel {
                                 Text(label).font(.system(size: 11)).foregroundColor(Theme.textMuted)
