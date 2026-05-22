@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var readinessService: ReadinessService
 
     var body: some View {
         TabView {

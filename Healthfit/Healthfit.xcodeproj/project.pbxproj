@@ -26,6 +26,7 @@
 		39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C752FAA3F4A006180A4 /* MockData.swift */; };
 		39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C662FAA3F4A006180A4 /* FoodView.swift */; };
 		39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */; };
+		C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		39B20C812FAA3F4A006180A4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		39B20C822FAA3F4A006180A4 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthFitApp.swift; sourceTree = "<group>"; };
+		EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -123,6 +125,7 @@
 				39B20C742FAA3F4A006180A4 /* MainTabView.swift */,
 				39B20C752FAA3F4A006180A4 /* MockData.swift */,
 				39B20C762FAA3F4A006180A4 /* Models.swift */,
+				EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */,
 				39B20C7B2FAA3F4A006180A4 /* Onboarding */,
 				39B20C7F2FAA3F4A006180A4 /* Plan */,
 				39B20C802FAA3F4A006180A4 /* README.md */,
@@ -375,6 +378,7 @@
 				39B20C9A2FAA3F4A006180A4 /* Models.swift in Sources */,
 				39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */,
 				39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */,
+				C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -528,12 +532,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Healthfit/Healthfit.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PZS7UFCQSQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthFit;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "HealthFit reads your HRV, sleep, and heart rate to calculate daily readiness and adapt your training plan.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HealthFit saves your completed workouts to Apple Health.";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -568,12 +575,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Healthfit/Healthfit.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PZS7UFCQSQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthFit;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "HealthFit reads your HRV, sleep, and heart rate to calculate daily readiness and adapt your training plan.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HealthFit saves your completed workouts to Apple Health.";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -606,6 +616,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -628,6 +639,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;

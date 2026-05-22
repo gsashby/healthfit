@@ -1,17 +1,20 @@
 //
 //  ConnectWatchView.swift
-//  Apple Watch / HealthKit connect step. The "Connect" button is mocked —
-//  in production it would request HKHealthStore authorization for HRV,
-//  sleep stages, RHR, and workout types.
+//  Apple Watch / HealthKit connect step — requests HKHealthStore authorization
+//  for HRV, sleep stages, RHR, and workout types, then kicks off the first
+//  readiness fetch.
 //
 
 import SwiftUI
+import HealthKit
 
 struct ConnectWatchView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var readinessService: ReadinessService
     let next: () -> Void
 
     @State private var isConnecting = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ZStack {
@@ -35,19 +38,25 @@ struct ConnectWatchView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 VStack(spacing: 10) {
-                    permissionRow(icon: "❤️",  title: "Heart rate variability", subtitle: "Daily readiness signal")
-                    permissionRow(icon: "🌙",  title: "Sleep stages",            subtitle: "Recovery context")
-                    permissionRow(icon: "💓",  title: "Resting heart rate",     subtitle: "Baseline tracking")
-                    permissionRow(icon: "🏃",  title: "Workouts",                 subtitle: "Two-way sync")
+                    permissionRow(icon: "❤️", title: "Heart rate variability", subtitle: "Daily readiness signal")
+                    permissionRow(icon: "🌙", title: "Sleep stages",            subtitle: "Recovery context")
+                    permissionRow(icon: "💓", title: "Resting heart rate",      subtitle: "Baseline tracking")
+                    permissionRow(icon: "🏃", title: "Workouts",                subtitle: "Two-way sync")
                 }
                 .padding(.top, 22)
+
+                if let err = errorMessage {
+                    Text(err)
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.red)
+                        .padding(.top, 12)
+                }
 
                 Spacer()
 
                 if appState.watchConnected {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(Theme.green)
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(Theme.green)
                         Text("Connected")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Theme.green)
@@ -59,7 +68,7 @@ struct ConnectWatchView: View {
 
                 } else {
                     PrimaryButton(
-                        title: isConnecting ? "Requesting access..." : "Connect Apple Watch",
+                        title: isConnecting ? "Requesting access…" : "Connect Apple Watch",
                         tint: Theme.green,
                         action: connect
                     )
@@ -85,14 +94,9 @@ struct ConnectWatchView: View {
                 .frame(width: 44, height: 44)
                 .background(Theme.card2)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Theme.text)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.textMuted)
+                Text(title).font(.system(size: 15, weight: .semibold)).foregroundColor(Theme.text)
+                Text(subtitle).font(.system(size: 12)).foregroundColor(Theme.textMuted)
             }
             Spacer()
         }
@@ -103,16 +107,23 @@ struct ConnectWatchView: View {
     }
 
     private func connect() {
+        guard !isConnecting else { return }
         isConnecting = true
-        // TODO: HealthKit
-        // HKHealthStore().requestAuthorization(toShare: nil, read: readTypes) { _, _ in … }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation { appState.setWatchConnected(true) }
+        errorMessage = nil
+        Task {
+            do {
+                try await readinessService.requestAuthorization()
+                appState.setWatchConnected(true)
+            } catch {
+                errorMessage = "Couldn't connect — please allow access in Settings."
+            }
             isConnecting = false
         }
     }
 }
 
 #Preview {
-    ConnectWatchView(next: {}).environmentObject(AppState())
+    ConnectWatchView(next: {})
+        .environmentObject(AppState())
+        .environmentObject(ReadinessService())
 }
