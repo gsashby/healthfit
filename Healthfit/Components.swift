@@ -170,3 +170,26 @@ struct ProfileField: View {
         }
     }
 }
+
+// MARK: - Chat bubble
+
+struct ChatBubble: View {
+    let message: ChatMessage
+
+    var isUser: Bool { message.role == .user }
+
+    var body: some View {
+        HStack {
+            if isUser { Spacer(minLength: 48) }
+            Text(message.text.isEmpty ? "…" : message.text)
+                .font(.system(size: 15))
+                .foregroundColor(isUser ? .black : Theme.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isUser ? Theme.green : Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+            if !isUser { Spacer(minLength: 48) }
+        }
+    }
+}

@@ -27,6 +27,7 @@
 		39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C662FAA3F4A006180A4 /* FoodView.swift */; };
 		39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */; };
 		C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */; };
+		DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +76,7 @@
 		39B20C822FAA3F4A006180A4 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthFitApp.swift; sourceTree = "<group>"; };
 		EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessService.swift; sourceTree = "<group>"; };
+		A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -126,6 +128,7 @@
 				39B20C752FAA3F4A006180A4 /* MockData.swift */,
 				39B20C762FAA3F4A006180A4 /* Models.swift */,
 				EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */,
+				A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */,
 				39B20C7B2FAA3F4A006180A4 /* Onboarding */,
 				39B20C7F2FAA3F4A006180A4 /* Plan */,
 				39B20C802FAA3F4A006180A4 /* README.md */,
@@ -379,6 +382,7 @@
 				39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */,
 				39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */,
 				C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */,
+				DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

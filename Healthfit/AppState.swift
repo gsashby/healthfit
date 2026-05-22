@@ -228,10 +228,47 @@ final class AppState: ObservableObject {
         persistToStore()
     }
 
-    /// Simulates regenerating a plan after the user edits inputs.
-    /// In production, this would call into a plan-generation service.
+    /// Falls back to the mock hybrid week (used when FM is unavailable).
     func regeneratePlan() {
         currentPlan = MockData.hybridWeek
+        planMode = .generated
+    }
+
+    /// Converts a Foundation Models GeneratedPlan into a WeekPlan and applies it.
+    func applyGeneratedPlan(_ generated: GeneratedPlan) {
+        let calendar = Calendar.current
+        let today = Date()
+        // Anchor to the Monday of the current week
+        let weekday = calendar.component(.weekday, from: today)
+        let daysFromMonday = (weekday + 5) % 7
+        let monday = calendar.date(byAdding: .day, value: -daysFromMonday, to: today)!
+
+        let days: [PlanDay] = generated.days.enumerated().map { offset, genDay in
+            let date = calendar.date(byAdding: .day, value: offset, to: monday)!
+            let dayNumber = calendar.component(.day, from: date)
+            let isToday = calendar.isDateInToday(date)
+
+            let sessions: [PlanSession] = genDay.sessions.map { s in
+                let kind: SessionKind = switch s.kind.lowercased() {
+                    case "lift":  .lift
+                    case "run":   .run
+                    case "yoga":  .yoga
+                    default:      .rest
+                }
+                return PlanSession(kind: kind, name: s.name, durationMin: s.durationMin)
+            }
+            return PlanDay(weekday: genDay.weekday, dayNumber: dayNumber,
+                           tag: genDay.tag, isToday: isToday, sessions: sessions)
+        }
+
+        currentPlan = WeekPlan(
+            weekIndex: currentPlan.weekIndex,
+            totalWeeks: currentPlan.totalWeeks,
+            phase: currentPlan.phase,
+            days: days,
+            summary: generated.summary,
+            approach: generated.approach
+        )
         planMode = .generated
     }
 }
