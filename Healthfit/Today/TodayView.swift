@@ -98,9 +98,13 @@ struct TodayView: View {
         .sheet(isPresented: $showWorkoutSession) {
             if let todayDay = appState.currentPlan.days.first(where: { $0.isToday }),
                let session = todayDay.sessions.first(where: { $0.kind != .rest }) ?? todayDay.sessions.first {
-                WorkoutSessionView(session: session, readiness: activeReadiness)
-                    .environmentObject(appState)
-                    .environmentObject(readinessService)
+                WorkoutSessionView(
+                    session: session,
+                    readiness: activeReadiness,
+                    chips: snapshot.workoutChips
+                )
+                .environmentObject(appState)
+                .environmentObject(readinessService)
             }
         }
     }
@@ -384,135 +388,348 @@ struct FlowLayout: Layout {
 
 // MARK: - WorkoutSessionView
 
+private struct WorkoutExercise: Identifiable {
+    let id = UUID()
+    let name: String
+    let sets: Int
+    let reps: String        // e.g. "6", "8", "AMRAP"
+    var completedSets: Int = 0
+    var isFullyLogged: Bool { completedSets >= sets }
+}
+
 struct WorkoutSessionView: View {
     let session: PlanSession
     let readiness: ReadinessState
+    let chips: [String]
 
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var readinessService: ReadinessService
     @Environment(\.dismiss) private var dismiss
 
     @State private var elapsed: Int = 0
+    @State private var currentHR: Int? = nil
+    @State private var exercises: [WorkoutExercise] = []
     @State private var isSaving = false
 
     private let startDate = Date()
     private let timerPublisher = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    private var displayName: String {
+    private var isLift: Bool { session.kind == .lift }
+
+    private var effectiveName: String {
         readiness == .red ? "Easy Z2 walk + mobility" : session.name
     }
+
     private var targetMinutes: Int {
         readiness == .red ? 30 : (readiness == .yellow ? session.durationMin * 4 / 5 : session.durationMin)
+    }
+
+    private var kcalBurned: Int {
+        let met: Double = switch session.kind {
+        case .lift: 5.0; case .run: 9.0; case .yoga: 2.5; case .rest: 3.0
+        }
+        let weightKg = max(appState.user.weightLb, 100) * 0.453592
+        return Int(met * weightKg * Double(elapsed) / 3600.0)
+    }
+
+    private var accentColor: Color {
+        switch session.kind {
+        case .lift: return Theme.orange
+        case .run:  return Theme.green
+        case .yoga: return Theme.purple
+        case .rest: return Theme.textMuted
+        }
     }
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(Theme.textMuted)
+                header
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        statsBar
+                        if isLift { liftContent }
+                        else       { cardioContent }
                     }
-                    Spacer()
-                    if readiness != .green {
-                        StatusTag(text: "Adjusted", tint: Theme.yellow)
-                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+                    .padding(.bottom, 110)
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 16)
-
-                Spacer()
-
-                // Timer ring
-                ZStack {
-                    Circle()
-                        .stroke(Theme.card2, lineWidth: 12)
-                        .frame(width: 220, height: 220)
-                    Circle()
-                        .trim(from: 0, to: min(1, CGFloat(elapsed) / CGFloat(targetMinutes * 60)))
-                        .stroke(Theme.green, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                        .frame(width: 220, height: 220)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 1), value: elapsed)
-                    VStack(spacing: 4) {
-                        Text(timeString(elapsed))
-                            .font(.system(size: 48, weight: .bold, design: .monospaced))
-                            .foregroundColor(Theme.text)
-                        Text("of \(targetMinutes) min")
-                            .font(.system(size: 14))
-                            .foregroundColor(Theme.textMuted)
-                    }
-                }
-
-                VStack(spacing: 6) {
-                    Text(displayName)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(Theme.text)
-                        .multilineTextAlignment(.center)
-                    Text(session.kind.emoji + " " + kindLabel)
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.textMuted)
-                }
-                .padding(.top, 28)
-
-                Spacer()
-
-                // Actions
-                VStack(spacing: 10) {
-                    PrimaryButton(
-                        title: isSaving ? "Saving…" : "Mark complete",
-                        tint: Theme.green
-                    ) {
-                        completeWorkout()
-                    }
-                    .disabled(isSaving)
-
-                    Button("End early — don't log") { dismiss() }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Theme.textMuted)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 36)
+                footer
             }
         }
         .onReceive(timerPublisher) { _ in elapsed += 1 }
-    }
-
-    private var kindLabel: String {
-        switch session.kind {
-        case .lift: return "Strength training"
-        case .run:  return "Cardio"
-        case .yoga: return "Yoga & mobility"
-        case .rest: return "Recovery"
+        .onAppear {
+            if isLift { exercises = parseExercises(from: chips) }
+        }
+        .task {
+            while !Task.isCancelled {
+                if let hr = await readinessService.fetchCurrentHeartRate() {
+                    currentHR = hr
+                }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
         }
     }
 
+    // MARK: Header
+
+    private var header: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(Theme.textMuted)
+            }
+            Spacer()
+            VStack(spacing: 3) {
+                Text(effectiveName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+                if readiness != .green {
+                    StatusTag(text: "Adjusted", tint: Theme.yellow)
+                }
+            }
+            Spacer()
+            // Mirror for centering
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 28))
+                .foregroundColor(.clear)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: Stats bar — HR · Kcal · Timer
+
+    private var statsBar: some View {
+        HStack(spacing: 0) {
+            statCell(icon: "heart.fill",  color: Theme.red,
+                     value: currentHR.map { "\($0)" } ?? "—", unit: "bpm")
+            separator
+            statCell(icon: "flame.fill",  color: Theme.orange,
+                     value: "\(kcalBurned)", unit: "kcal")
+            separator
+            statCell(icon: "timer",       color: accentColor,
+                     value: timeString(elapsed), unit: "elapsed")
+        }
+        .padding(.vertical, 14)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Theme.separator)
+            .frame(width: 1, height: 44)
+    }
+
+    private func statCell(icon: String, color: Color, value: String, unit: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundColor(Theme.text)
+            Text(unit)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Theme.textMuted)
+                .textCase(.uppercase)
+                .tracking(0.5)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: Lift content — exercise cards with set tracking
+
+    private var liftContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Exercises")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Theme.textMuted)
+                .textCase(.uppercase)
+                .tracking(0.6)
+
+            if exercises.isEmpty {
+                Text("See your plan for details.")
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 24)
+            } else {
+                ForEach(Array(exercises.indices), id: \.self) { idx in
+                    exerciseCard(idx: idx)
+                }
+            }
+        }
+    }
+
+    private func exerciseCard(idx: Int) -> some View {
+        let ex = exercises[idx]
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(ex.name)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Spacer()
+                if ex.isFullyLogged {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Theme.green)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+
+            HStack {
+                Text("\(ex.sets) sets · \(ex.reps) reps")
+                    .font(.system(size: 13))
+                    .foregroundColor(Theme.textMuted)
+                Spacer()
+                // Set dots — tap each circle to log that set
+                HStack(spacing: 8) {
+                    ForEach(0..<ex.sets, id: \.self) { setIdx in
+                        Circle()
+                            .fill(setIdx < ex.completedSets ? Theme.green : Color.clear)
+                            .overlay(Circle().stroke(
+                                setIdx < ex.completedSets ? Theme.green : Theme.textMuted,
+                                lineWidth: 2))
+                            .frame(width: 30, height: 30)
+                            .contentShape(Circle())
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                    // Tap filled dot → undo; tap next empty dot → log it
+                                    if setIdx < exercises[idx].completedSets {
+                                        exercises[idx].completedSets = setIdx
+                                    } else if setIdx == exercises[idx].completedSets {
+                                        exercises[idx].completedSets += 1
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(ex.isFullyLogged ? Theme.green.opacity(0.08) : Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .animation(.easeInOut(duration: 0.2), value: ex.isFullyLogged)
+    }
+
+    // MARK: Cardio / yoga content — circular timer + instruction chips
+
+    private var cardioContent: some View {
+        VStack(spacing: 20) {
+            // Circular progress ring
+            ZStack {
+                Circle()
+                    .stroke(Theme.card2, lineWidth: 14)
+                    .frame(width: 210, height: 210)
+                Circle()
+                    .trim(from: 0, to: min(1, Double(elapsed) / Double(max(targetMinutes * 60, 1))))
+                    .stroke(accentColor, style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                    .frame(width: 210, height: 210)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 1), value: elapsed)
+                VStack(spacing: 4) {
+                    Text(timeString(elapsed))
+                        .font(.system(size: 42, weight: .bold, design: .monospaced))
+                        .foregroundColor(Theme.text)
+                    Text("of \(targetMinutes) min")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+            .padding(.top, 8)
+
+            // Instruction chips
+            if !chips.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Notes")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Theme.textMuted)
+                        .textCase(.uppercase)
+                        .tracking(0.6)
+                    ForEach(chips, id: \.self) { chip in
+                        HStack(spacing: 10) {
+                            Circle().fill(accentColor).frame(width: 6, height: 6)
+                            Text(chip)
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.text)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+        }
+    }
+
+    // MARK: Footer
+
+    private var footer: some View {
+        VStack(spacing: 10) {
+            PrimaryButton(title: isSaving ? "Saving…" : "Mark complete", tint: Theme.green) {
+                completeWorkout()
+            }
+            .disabled(isSaving)
+
+            Button("End early — don't log") { dismiss() }
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Theme.textMuted)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(
+            Theme.bg
+                .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    // MARK: Helpers
+
     private func timeString(_ s: Int) -> String {
         String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    /// Parses chips like "Back squat 4×6" into trackable exercises.
+    private func parseExercises(from chips: [String]) -> [WorkoutExercise] {
+        chips.compactMap { chip in
+            guard let xRange = chip.range(of: "×") else { return nil }
+            let before = String(chip[..<xRange.lowerBound])
+            let parts = before.components(separatedBy: " ")
+            guard let sets = Int(parts.last ?? ""), sets > 0 else { return nil }
+            let name = parts.dropLast().joined(separator: " ")
+            let reps = String(chip[xRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { return nil }
+            return WorkoutExercise(name: name, sets: sets, reps: reps)
+        }
     }
 
     private func completeWorkout() {
         isSaving = true
         let end = Date()
         let activityType: HKWorkoutActivityType = switch session.kind {
-            case .lift: .traditionalStrengthTraining
-            case .run:  .running
-            case .yoga: .yoga
-            case .rest: .walking
+        case .lift: .traditionalStrengthTraining
+        case .run:  .running
+        case .yoga: .yoga
+        case .rest: .walking
         }
-        let kcalPerMin: Double = switch session.kind {
-            case .lift: 7; case .run: 10; case .yoga: 4; case .rest: 3
+        let met: Double = switch session.kind {
+        case .lift: 5.0; case .run: 9.0; case .yoga: 2.5; case .rest: 3.0
         }
-        let estimatedKcal = Double(elapsed / 60) * kcalPerMin
+        let weightKg = max(appState.user.weightLb, 100) * 0.453592
+        let estimatedKcal = met * weightKg * Double(elapsed) / 3600.0
 
         Task {
             try? await readinessService.saveWorkout(
                 activityType: activityType,
                 start: startDate, end: end,
-                energyKcal: estimatedKcal > 0 ? estimatedKcal : nil
+                energyKcal: estimatedKcal > 1 ? estimatedKcal : nil
             )
             appState.acceptTodaySession()
             dismiss()

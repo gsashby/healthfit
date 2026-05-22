@@ -359,6 +359,25 @@ final class ReadinessService: ObservableObject {
         return (try? await descriptor.result(for: store)) ?? []
     }
 
+    // MARK: - Live workout metrics
+
+    /// Most recent heart rate sample within the last 5 minutes (for active workout display).
+    func fetchCurrentHeartRate() async -> Int? {
+        guard HKHealthStore.isHealthDataAvailable(),
+              let qType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return nil }
+        let start = Date().addingTimeInterval(-300)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [HKSamplePredicate<HKQuantitySample>.quantitySample(
+                type: qType, predicate: predicate)],
+            sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)],
+            limit: 1
+        )
+        guard let samples = try? await descriptor.result(for: store),
+              let sample = samples.first else { return nil }
+        return Int(sample.quantity.doubleValue(for: .count().unitDivided(by: .minute())))
+    }
+
     // MARK: - Write workout
 
     func saveWorkout(activityType: HKWorkoutActivityType,
