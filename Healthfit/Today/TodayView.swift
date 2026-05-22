@@ -392,9 +392,57 @@ private struct WorkoutExercise: Identifiable {
     let id = UUID()
     let name: String
     let sets: Int
-    let reps: String        // e.g. "6", "8", "AMRAP"
+    let reps: String            // "6", "8", "AMRAP"
     var completedSets: Int = 0
-    var isFullyLogged: Bool { completedSets >= sets }
+    var weightLbs: Double = 0
+    var pendingRIR: Bool = false // a set was just logged — awaiting RIR rating
+    var lastRIR: Int? = nil      // most recent RIR value (0 = failure … 4+ = easy)
+
+    var isFullyLogged: Bool { completedSets >= sets && !pendingRIR }
+
+    // Four discrete RIR options shown in the effort picker
+    enum RIROption: Int, CaseIterable {
+        case easy = 4   // 4+ reps in reserve
+        case good = 2   // 2–3 reps in reserve
+        case hard = 1   // 1 rep in reserve
+        case max  = 0   // to failure
+
+        var label: String {
+            switch self { case .easy: "Easy"; case .good: "Good"; case .hard: "Hard"; case .max: "Max" }
+        }
+        var subtitle: String {
+            switch self { case .easy: "4+ RIR"; case .good: "2–3 RIR"; case .hard: "1 RIR"; case .max: "Failure" }
+        }
+        var color: Color {
+            switch self { case .easy: Theme.blue; case .good: Theme.green; case .hard: Theme.yellow; case .max: Theme.red }
+        }
+    }
+
+    struct LoadSuggestion {
+        let message: String
+        let proposedWeight: Double  // 0 = no specific weight (e.g. bodyweight note)
+    }
+
+    var loadSuggestion: LoadSuggestion? {
+        guard let rir = lastRIR, !pendingRIR else { return nil }
+        let w = weightLbs
+        switch rir {
+        case 0:  // Max — drop ~10%, round to nearest 2.5
+            guard w > 0 else { return LoadSuggestion(message: "Set a starting weight to track load", proposedWeight: 0) }
+            let drop = max(0, (w * 0.9 / 2.5).rounded() * 2.5)
+            return LoadSuggestion(message: "↓  Max effort — drop ~10%, try \(fmtLbs(drop))", proposedWeight: drop)
+        case 1:  // Hard — stay
+            return LoadSuggestion(message: "✓  Challenging — hold at \(fmtLbs(w))", proposedWeight: w)
+        case 2, 3:  // Good — add 5
+            return LoadSuggestion(message: "↑  Solid — add 5 lbs, try \(fmtLbs(w + 5))", proposedWeight: w + 5)
+        default:  // Easy — add 10
+            return LoadSuggestion(message: "↑↑  Too easy — add 10 lbs, try \(fmtLbs(w + 10))", proposedWeight: w + 10)
+        }
+    }
+
+    private func fmtLbs(_ w: Double) -> String {
+        w.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(w)) lbs" : String(format: "%.1f lbs", w)
+    }
 }
 
 struct WorkoutSessionView: View {
@@ -548,11 +596,16 @@ struct WorkoutSessionView: View {
 
     private var liftContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Exercises")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Theme.textMuted)
-                .textCase(.uppercase)
-                .tracking(0.6)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Exercises")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Theme.textMuted)
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                Text("Set weight · tap dots to log sets · rate effort for load advice")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.textMuted.opacity(0.7))
+            }
 
             if exercises.isEmpty {
                 Text("See your plan for details.")
@@ -570,7 +623,9 @@ struct WorkoutSessionView: View {
 
     private func exerciseCard(idx: Int) -> some View {
         let ex = exercises[idx]
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 14) {
+
+            // ── Name + done badge ──────────────────────────────────────────
             HStack {
                 Text(ex.name)
                     .font(.system(size: 16, weight: .semibold))
@@ -583,12 +638,51 @@ struct WorkoutSessionView: View {
                 }
             }
 
+            // ── Weight stepper ─────────────────────────────────────────────
+            HStack(spacing: 0) {
+                Button {
+                    withAnimation(.spring(response: 0.2)) {
+                        exercises[idx].weightLbs = max(0, exercises[idx].weightLbs - 5)
+                    }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundColor(ex.weightLbs > 0 ? Theme.blue : Theme.card2)
+                }
+                .disabled(ex.weightLbs <= 0)
+
+                Spacer()
+                VStack(spacing: 2) {
+                    Text(ex.weightLbs > 0 ? weightStr(ex.weightLbs) : "—")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(ex.weightLbs > 0 ? Theme.text : Theme.textMuted)
+                        .contentTransition(.numericText())
+                    Text("lbs · 5 lb steps")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.textMuted)
+                }
+                Spacer()
+
+                Button {
+                    withAnimation(.spring(response: 0.2)) {
+                        exercises[idx].weightLbs += 5
+                    }
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundColor(Theme.blue)
+                }
+            }
+            .padding(.horizontal, 8)
+
+            Rectangle().fill(Theme.separator).frame(height: 1)
+
+            // ── Set dots ───────────────────────────────────────────────────
             HStack {
                 Text("\(ex.sets) sets · \(ex.reps) reps")
                     .font(.system(size: 13))
                     .foregroundColor(Theme.textMuted)
                 Spacer()
-                // Set dots — tap each circle to log that set
                 HStack(spacing: 8) {
                     ForEach(0..<ex.sets, id: \.self) { setIdx in
                         Circle()
@@ -600,22 +694,98 @@ struct WorkoutSessionView: View {
                             .contentShape(Circle())
                             .onTapGesture {
                                 withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                    // Tap filled dot → undo; tap next empty dot → log it
                                     if setIdx < exercises[idx].completedSets {
+                                        // Tap a filled dot → undo back to that set
                                         exercises[idx].completedSets = setIdx
+                                        exercises[idx].pendingRIR = false
+                                        exercises[idx].lastRIR = nil
                                     } else if setIdx == exercises[idx].completedSets {
+                                        // Tap the next empty dot → log set, prompt RIR
                                         exercises[idx].completedSets += 1
+                                        exercises[idx].pendingRIR = true
+                                        exercises[idx].lastRIR = nil
                                     }
                                 }
                             }
                     }
                 }
             }
+
+            // ── RIR effort picker (shown immediately after logging a set) ──
+            if ex.pendingRIR {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Rate effort — set \(ex.completedSets)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Theme.textMuted)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+
+                    HStack(spacing: 6) {
+                        ForEach(WorkoutExercise.RIROption.allCases, id: \.rawValue) { option in
+                            Button {
+                                withAnimation(.spring(response: 0.3)) {
+                                    exercises[idx].lastRIR = option.rawValue
+                                    exercises[idx].pendingRIR = false
+                                }
+                            } label: {
+                                VStack(spacing: 2) {
+                                    Text(option.label)
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text(option.subtitle)
+                                        .font(.system(size: 10))
+                                }
+                                .foregroundColor(option.color)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
+                                .background(option.color.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                        }
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // ── Load suggestion (shown after RIR is rated) ─────────────────
+            if let sug = ex.loadSuggestion {
+                HStack(spacing: 10) {
+                    Text(sug.message)
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    if sug.proposedWeight > 0 && sug.proposedWeight != ex.weightLbs {
+                        Button {
+                            withAnimation(.spring(response: 0.25)) {
+                                exercises[idx].weightLbs = sug.proposedWeight
+                            }
+                        } label: {
+                            Text("Apply")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Theme.blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Theme.blue.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(12)
+                .background(Theme.card2)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .transition(.opacity)
+            }
         }
         .padding(16)
-        .background(ex.isFullyLogged ? Theme.green.opacity(0.08) : Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(ex.isFullyLogged ? Theme.green.opacity(0.07) : Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(.spring(response: 0.35), value: ex.pendingRIR)
+        .animation(.spring(response: 0.35), value: ex.lastRIR)
         .animation(.easeInOut(duration: 0.2), value: ex.isFullyLogged)
+    }
+
+    private func weightStr(_ w: Double) -> String {
+        w.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(w))" : String(format: "%.1f", w)
     }
 
     // MARK: Cardio / yoga content — circular timer + instruction chips
