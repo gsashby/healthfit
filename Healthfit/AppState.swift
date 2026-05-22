@@ -243,7 +243,7 @@ final class AppState: ObservableObject {
         let daysFromMonday = (weekday + 5) % 7
         let monday = calendar.date(byAdding: .day, value: -daysFromMonday, to: today)!
 
-        let days: [PlanDay] = generated.days.enumerated().map { offset, genDay in
+        let days: [PlanDay] = generated.days.prefix(7).enumerated().map { offset, genDay in
             let date = calendar.date(byAdding: .day, value: offset, to: monday)!
             let dayNumber = calendar.component(.day, from: date)
             let isToday = calendar.isDateInToday(date)

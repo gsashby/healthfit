@@ -230,15 +230,27 @@ struct TodayView: View {
 
     @ToolbarContentBuilder
     private var toolbarItems: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: {
+            #if os(iOS)
+            ToolbarItemPlacement.topBarLeading
+            #else
+            ToolbarItemPlacement.navigation
+            #endif
+        }()) {
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape").foregroundColor(Theme.text)
             }
         }
         // Demo mood override — visible in all builds for prototype testing
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: {
+            #if os(iOS)
+            ToolbarItemPlacement.topBarTrailing
+            #else
+            ToolbarItemPlacement.primaryAction
+            #endif
+        }()) {
             Menu {
-                Section("Demo · Override readiness") {
+                Section(isLiveData ? "Demo · Override inactive (live data)" : "Demo · Override readiness") {
                     ForEach(ReadinessState.allCases) { state in
                         Button {
                             appState.readinessState = state
@@ -249,6 +261,7 @@ struct TodayView: View {
                                 Text(state.label)
                             }
                         }
+                        .disabled(isLiveData)
                     }
                 }
                 if isLiveData {

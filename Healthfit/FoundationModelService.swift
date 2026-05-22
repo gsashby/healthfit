@@ -91,7 +91,7 @@ final class FoundationModelService: ObservableObject {
             coachSession = LanguageModelSession(instructions: Self.coachInstructions)
         case .unavailable(let reason):
             isAvailable = false
-            unavailableReason = reason.localizedDescription
+            unavailableReason = String(describing: reason)
         }
     }
 
@@ -154,7 +154,7 @@ final class FoundationModelService: ObservableObject {
             """
 
         return AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     for try await partial in session.streamResponse(to: contextualPrompt) {
                         continuation.yield(partial.content)
@@ -164,6 +164,9 @@ final class FoundationModelService: ObservableObject {
                     continuation.finish(throwing: error)
                 }
             }
+            // Cancel the inner Task when the consumer cancels or the stream finishes,
+            // so the model stops generating even if the caller's for-try-await loop exits.
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 

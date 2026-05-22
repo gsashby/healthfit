@@ -37,8 +37,10 @@ struct CoachView: View {
 
     @State private var messages: [ChatMessage] = []
     @State private var inputText: String = ""
-    @State private var isStreaming: Bool = false
+    @State private var streamTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
+
+    private var isStreaming: Bool { streamTask != nil }
 
     var body: some View {
         ZStack {
@@ -130,13 +132,17 @@ struct CoachView: View {
                 .focused($inputFocused)
 
             Button {
-                sendMessage()
+                if isStreaming {
+                    streamTask?.cancel()
+                } else {
+                    sendMessage()
+                }
             } label: {
                 Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(inputText.isEmpty && !isStreaming ? Theme.textMuted : Theme.green)
+                    .foregroundColor(!isStreaming && inputText.isEmpty ? Theme.textMuted : Theme.green)
             }
-            .disabled(inputText.isEmpty && !isStreaming)
+            .disabled(!isStreaming && inputText.isEmpty)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
@@ -192,20 +198,20 @@ struct CoachView: View {
             planTotalWeeks: appState.currentPlan.totalWeeks
         )
 
-        var assistantMsg = ChatMessage(role: .assistant, text: "")
-        messages.append(assistantMsg)
+        messages.append(ChatMessage(role: .assistant, text: ""))
         let idx = messages.count - 1
-        isStreaming = true
 
-        Task {
+        streamTask = Task {
+            defer { streamTask = nil }
             do {
                 for try await partial in fmService.streamCoachReply(to: userText, context: context) {
                     messages[idx].text += partial
                 }
+            } catch is CancellationError {
+                // Cancelled by the user via the stop button — leave the partial reply as-is.
             } catch {
                 messages[idx].text = "Sorry, something went wrong. Try again."
             }
-            isStreaming = false
         }
     }
 }
@@ -233,15 +239,24 @@ struct SettingsView: View {
                         sectionLabel("Profile")
                         VStack(spacing: 12) {
                             ProfileField(label: "Name", placeholder: "Your first name", text: $name)
+                            #if canImport(UIKit)
                             ProfileField(label: "Age", placeholder: "e.g. 32", text: $age, keyboard: .numberPad)
+                            #else
+                            ProfileField(label: "Age", placeholder: "e.g. 32", text: $age)
+                            #endif
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Sex at birth").eyebrow()
                                 Picker("Sex", selection: $sex) {
                                     ForEach(sexOptions, id: \.self) { Text($0).tag($0) }
                                 }.pickerStyle(.segmented)
                             }
+                            #if canImport(UIKit)
                             ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight, keyboard: .decimalPad)
                             ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight, keyboard: .decimalPad)
+                            #else
+                            ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight)
+                            ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight)
+                            #endif
                         }
                         PrimaryButton(title: "Save changes", tint: Theme.green) {
                             appState.saveUserProfile(UserProfile(
@@ -270,8 +285,15 @@ struct SettingsView: View {
                     .padding(.horizontal, 22).padding(.top, 16).padding(.bottom, 40)
                 }
             }
-            .navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.foregroundColor(Theme.green) } }
+            .navigationTitle("Settings")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.foregroundColor(Theme.green)
+                }
+            }
             .alert("Delete account?", isPresented: $showDeleteConfirm) {
                 Button("Delete", role: .destructive) { authService.signOut(); appState.resetOnboarding() }
                 Button("Cancel", role: .cancel) {}

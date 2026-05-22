@@ -55,6 +55,12 @@ final class ReadinessService: ObservableObject {
     func requestAuthorization() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         try await store.requestAuthorization(toShare: Self.shareTypes, read: Self.readTypes)
+        // HealthKit never throws when the user taps "Don't Allow" — it silently succeeds.
+        // Check the one type we can inspect post-auth (workout is in shareTypes, so its
+        // status is readable). Throw if it's denied so callers don't mark the app as connected.
+        guard store.authorizationStatus(for: HKObjectType.workoutType()) != .sharingDenied else {
+            throw HKError(.errorAuthorizationDenied)
+        }
         await fetchReadiness()
         await enableBackgroundDelivery()
         await requestNotificationPermission()
@@ -64,6 +70,7 @@ final class ReadinessService: ObservableObject {
 
     func fetchReadiness() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
 
@@ -124,7 +131,7 @@ final class ReadinessService: ObservableObject {
         let now = Date()
         let todayStart = calendar.startOfDay(for: now)
         let windowEnd   = calendar.date(byAdding: .hour, value: 12, to: todayStart)!
-        let windowStart = windowEnd.addingTimeInterval(-86400)
+        let windowStart = calendar.date(byAdding: .day, value: -1, to: windowEnd)!
 
         let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd,
                                                      options: .strictStartDate)
@@ -318,7 +325,7 @@ final class ReadinessService: ObservableObject {
     // MARK: - Notifications
 
     func requestNotificationPermission() async {
-        try? await UNUserNotificationCenter.current()
+        _ = try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound, .badge])
     }
 

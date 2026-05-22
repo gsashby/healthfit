@@ -142,15 +142,24 @@ struct ProfileSetupView: View {
 
                     VStack(spacing: 14) {
                         ProfileField(label: "Name", placeholder: "Your first name", text: $name)
+                        #if canImport(UIKit)
                         ProfileField(label: "Age", placeholder: "e.g. 32", text: $age, keyboard: .numberPad)
+                        #else
+                        ProfileField(label: "Age", placeholder: "e.g. 32", text: $age)
+                        #endif
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Sex at birth").eyebrow()
                             Picker("Sex", selection: $sex) {
                                 ForEach(sexOptions, id: \.self) { Text($0).tag($0) }
                             }.pickerStyle(.segmented)
                         }
+                        #if canImport(UIKit)
                         ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight, keyboard: .decimalPad)
                         ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight, keyboard: .decimalPad)
+                        #else
+                        ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight)
+                        ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight)
+                        #endif
                     }.padding(.top, 24)
 
                     PrimaryButton(
@@ -184,8 +193,14 @@ private struct AuthFieldLocal: View {
     var body: some View {
         Group {
             if isSecure { SecureField(placeholder, text: $text) }
-            else { TextField(placeholder, text: $text).keyboardType(.emailAddress)
-                       .textInputAutocapitalization(.never).autocorrectionDisabled() }
+            else {
+                TextField(placeholder, text: $text)
+                    #if canImport(UIKit)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+            }
         }
         .font(.system(size: 16)).foregroundColor(Theme.text)
         .padding(14).background(Theme.card)

@@ -90,9 +90,6 @@ struct PlanInputView: View {
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.white.opacity(0.04), lineWidth: 1))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .onChange(of: description) { _, _ in
-                    if fmService.isAvailable { scheduleParseDebounce() }
-                }
 
             Text("Activities I enjoy").eyebrow().padding(.top, 4)
             FlowLayout(spacing: 6) {
@@ -177,14 +174,8 @@ struct PlanInputView: View {
 
     // MARK: Actions
 
-    private var parseTask: Task<Void, Never>?
-
-    private mutating func scheduleParseDebounce() {
-        // No-op — mutating on @State via side-effect isn't clean here;
-        // parsing is triggered explicitly on generate instead.
-    }
-
     private func generatePlan() {
+        guard !isGenerating else { return }
         errorMessage = nil
         guard fmService.isAvailable else {
             appState.regeneratePlan()
@@ -193,11 +184,11 @@ struct PlanInputView: View {
         isGenerating = true
         Task {
             do {
-                // Parse input first (updates the "What I heard" card)
+                isParsing = true
                 if let parsed = try? await fmService.parseInput(description) {
                     parsedRows = buildParsedRows(from: parsed)
                 }
-                // Generate the plan
+                isParsing = false
                 let generated = try await fmService.generateWeekPlan(
                     userDescription: description,
                     profile: appState.user,
@@ -206,6 +197,7 @@ struct PlanInputView: View {
                 )
                 appState.applyGeneratedPlan(generated)
             } catch {
+                isParsing = false
                 errorMessage = error.localizedDescription
                 appState.regeneratePlan()
             }
