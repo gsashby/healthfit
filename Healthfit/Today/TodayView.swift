@@ -665,15 +665,21 @@ struct WorkoutSessionView: View {
 
             // Title + progress
             VStack(alignment: .leading, spacing: 4) {
-                Group {
+                let progressLabel: String = {
                     if ex.completedWarmupCount < ex.warmupSets.count {
-                        Text("Warmup \(ex.completedWarmupCount + 1) of \(ex.warmupSets.count) · then \(ex.totalWorkingCount) working sets")
+                        let cur = ex.completedWarmupCount + 1
+                        let total = ex.warmupSets.count
+                        let working = ex.totalWorkingCount
+                        return "Warmup \(cur) of \(total) · then \(working) working sets"
                     } else {
-                        Text("Active · \(ex.completedWorkingCount) of \(ex.totalWorkingCount) working sets done")
+                        let done = ex.completedWorkingCount
+                        let total = ex.totalWorkingCount
+                        return "Active · \(done) of \(total) working sets done"
                     }
-                }
-                .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.blue)
-                .textCase(.uppercase).tracking(0.5)
+                }()
+                Text(progressLabel)
+                    .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.blue)
+                    .textCase(.uppercase).tracking(0.5)
                 Text(ex.name).font(.system(size: 19, weight: .bold)).foregroundColor(Theme.text)
             }
 
@@ -685,7 +691,7 @@ struct WorkoutSessionView: View {
             Rectangle().fill(Theme.separator).frame(height: 1)
 
             // Logged sets history
-            if ex.completedSetCount > 0 {
+            if ex.sets.filter(\.isLogged).count > 0 {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Completed")
                         .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.textMuted)
@@ -1107,7 +1113,7 @@ struct WorkoutSessionView: View {
             !exercises[exIdx].sets[$0].isWarmup && !exercises[exIdx].sets[$0].isLogged
         }
         guard indices.count > 1, let last = indices.last else { return }
-        withAnimation(.spring(response: 0.3)) {
+        _ = withAnimation(.spring(response: 0.3)) {
             exercises[exIdx].sets.remove(at: last)
         }
     }
