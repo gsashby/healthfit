@@ -23,6 +23,7 @@ struct HealthFitApp: App {
                 .environmentObject(readinessService)
                 .environmentObject(fmService)
                 .preferredColorScheme(.dark)
+                .onAppear { appState.advanceWeekIfNeeded() }
         }
         .modelContainer(for: PersistedProfile.self)
     }

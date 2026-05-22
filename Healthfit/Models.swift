@@ -118,7 +118,7 @@ struct WeekPlan: Identifiable {
     let weekIndex: Int        // 1 of 12
     let totalWeeks: Int
     let phase: String         // "Base", "Build", "Peak"…
-    let days: [PlanDay]
+    var days: [PlanDay]
     let summary: String
     let approach: String
 }

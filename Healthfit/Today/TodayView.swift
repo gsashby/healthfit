@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import HealthKit
 
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
@@ -13,31 +14,37 @@ struct TodayView: View {
     @EnvironmentObject var readinessService: ReadinessService
     @State private var showSettings = false
 
-    // Merge live HealthKit data into a full ReadinessSnapshot.
-    // Workout/nutrition fields still come from MockData until Phase 3/4.
-    private var snapshot: ReadinessSnapshot {
-        if let live = readinessService.latestData {
-            let mock = MockData.readiness(for: live.state)
-            return ReadinessSnapshot(
-                state: live.state,
-                score: live.score,
-                vitals: live.vitals,
-                workoutTitle: mock.workoutTitle,
-                workoutName: mock.workoutName,
-                workoutMeta: mock.workoutMeta,
-                workoutChips: mock.workoutChips,
-                workoutTag: mock.workoutTag,
-                reasoning: live.reasoning,
-                kcalTarget: mock.kcalTarget,
-                macros: mock.macros,
-                macroTag: mock.macroTag
-            )
-        }
-        // Fallback: mock data (simulator / no Watch)
-        return MockData.readiness(for: appState.readinessState)
+    @State private var showWorkoutSession = false
+
+    // Live HealthKit data is suppressed when user taps "Keep original".
+    private var activeReadiness: ReadinessState {
+        if appState.todayForcesOriginalPlan { return .green }
+        return readinessService.latestData?.state ?? appState.readinessState
     }
 
-    private var isLiveData: Bool { readinessService.latestData != nil }
+    private var snapshot: ReadinessSnapshot {
+        let readiness = activeReadiness
+        let adj = appState.adjustedTodayWorkout(readiness: readiness)
+        let liveData = appState.todayForcesOriginalPlan ? nil : readinessService.latestData
+        let mock = MockData.readiness(for: readiness)
+
+        return ReadinessSnapshot(
+            state: readiness,
+            score: liveData?.score ?? mock.score,
+            vitals: liveData?.vitals ?? mock.vitals,
+            workoutTitle: adj.title,
+            workoutName: adj.name,
+            workoutMeta: adj.meta,
+            workoutChips: adj.chips,
+            workoutTag: adj.tag,
+            reasoning: liveData?.reasoning ?? mock.reasoning,
+            kcalTarget: adj.kcalTarget,
+            macros: adj.macros,
+            macroTag: adj.macroTag
+        )
+    }
+
+    private var isLiveData: Bool { !appState.todayForcesOriginalPlan && readinessService.latestData != nil }
     private var accent: Color { Theme.accent(for: snapshot.state) }
     private var accentSoft: Color { Theme.accentSoft(for: snapshot.state) }
 
@@ -84,9 +91,16 @@ struct TodayView: View {
                 .environmentObject(authService)
         }
         .task {
-            // Refresh readiness each time the Today tab appears, if already authorized
             if appState.watchConnected {
                 await readinessService.fetchReadiness()
+            }
+        }
+        .sheet(isPresented: $showWorkoutSession) {
+            if let todayDay = appState.currentPlan.days.first(where: { $0.isToday }),
+               let session = todayDay.sessions.first(where: { $0.kind != .rest }) ?? todayDay.sessions.first {
+                WorkoutSessionView(session: session, readiness: activeReadiness)
+                    .environmentObject(appState)
+                    .environmentObject(readinessService)
             }
         }
     }
@@ -187,15 +201,39 @@ struct TodayView: View {
 
     private var actionsRow: some View {
         VStack(spacing: 8) {
-            PrimaryButton(
-                title: snapshot.state == .green ? "Start workout"
-                     : snapshot.state == .yellow ? "Accept adjusted plan"
-                     : "Accept easy day",
-                tint: accent, action: {}
-            )
+            if appState.todaySessionAccepted {
+                PrimaryButton(title: "Workout logged ✓", tint: Theme.green, action: {})
+                    .disabled(true)
+            } else {
+                PrimaryButton(
+                    title: snapshot.state == .green ? "Start workout"
+                         : snapshot.state == .yellow ? "Accept adjusted plan"
+                         : "Accept easy day",
+                    tint: accent
+                ) {
+                    showWorkoutSession = true
+                }
+            }
             HStack(spacing: 8) {
-                SecondaryButton(title: snapshot.state == .red ? "Full rest day" : "Modify", action: {})
-                SecondaryButton(title: snapshot.state == .green ? "Move to tomorrow" : "Keep original", action: {})
+                if snapshot.state == .red && !appState.todaySessionAccepted {
+                    SecondaryButton(title: "Full rest day") {
+                        appState.setFullRestDay()
+                    }
+                } else {
+                    SecondaryButton(title: "Modify", action: {})
+                }
+
+                if snapshot.state == .green {
+                    SecondaryButton(title: "Move to tomorrow") {
+                        appState.moveTodayToTomorrow()
+                    }
+                } else {
+                    SecondaryButton(
+                        title: appState.todayForcesOriginalPlan ? "Restore adjustment" : "Keep original"
+                    ) {
+                        appState.todayForcesOriginalPlan.toggle()
+                    }
+                }
             }
         }
     }
@@ -340,6 +378,144 @@ struct FlowLayout: Layout {
             if x + s.width > bounds.maxX { x = bounds.minX; y += lineH + spacing; lineH = 0 }
             view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
             x += s.width + spacing; lineH = max(lineH, s.height)
+        }
+    }
+}
+
+// MARK: - WorkoutSessionView
+
+struct WorkoutSessionView: View {
+    let session: PlanSession
+    let readiness: ReadinessState
+
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var readinessService: ReadinessService
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var elapsed: Int = 0
+    @State private var isSaving = false
+
+    private let startDate = Date()
+    private let timerPublisher = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private var displayName: String {
+        readiness == .red ? "Easy Z2 walk + mobility" : session.name
+    }
+    private var targetMinutes: Int {
+        readiness == .red ? 30 : (readiness == .yellow ? session.durationMin * 4 / 5 : session.durationMin)
+    }
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    Spacer()
+                    if readiness != .green {
+                        StatusTag(text: "Adjusted", tint: Theme.yellow)
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 16)
+
+                Spacer()
+
+                // Timer ring
+                ZStack {
+                    Circle()
+                        .stroke(Theme.card2, lineWidth: 12)
+                        .frame(width: 220, height: 220)
+                    Circle()
+                        .trim(from: 0, to: min(1, CGFloat(elapsed) / CGFloat(targetMinutes * 60)))
+                        .stroke(Theme.green, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                        .frame(width: 220, height: 220)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 1), value: elapsed)
+                    VStack(spacing: 4) {
+                        Text(timeString(elapsed))
+                            .font(.system(size: 48, weight: .bold, design: .monospaced))
+                            .foregroundColor(Theme.text)
+                        Text("of \(targetMinutes) min")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.textMuted)
+                    }
+                }
+
+                VStack(spacing: 6) {
+                    Text(displayName)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(Theme.text)
+                        .multilineTextAlignment(.center)
+                    Text(session.kind.emoji + " " + kindLabel)
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(.top, 28)
+
+                Spacer()
+
+                // Actions
+                VStack(spacing: 10) {
+                    PrimaryButton(
+                        title: isSaving ? "Saving…" : "Mark complete",
+                        tint: Theme.green
+                    ) {
+                        completeWorkout()
+                    }
+                    .disabled(isSaving)
+
+                    Button("End early — don't log") { dismiss() }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Theme.textMuted)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 36)
+            }
+        }
+        .onReceive(timerPublisher) { _ in elapsed += 1 }
+    }
+
+    private var kindLabel: String {
+        switch session.kind {
+        case .lift: return "Strength training"
+        case .run:  return "Cardio"
+        case .yoga: return "Yoga & mobility"
+        case .rest: return "Recovery"
+        }
+    }
+
+    private func timeString(_ s: Int) -> String {
+        String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    private func completeWorkout() {
+        isSaving = true
+        let end = Date()
+        let activityType: HKWorkoutActivityType = switch session.kind {
+            case .lift: .traditionalStrengthTraining
+            case .run:  .running
+            case .yoga: .yoga
+            case .rest: .walking
+        }
+        let kcalPerMin: Double = switch session.kind {
+            case .lift: 7; case .run: 10; case .yoga: 4; case .rest: 3
+        }
+        let estimatedKcal = Double(elapsed / 60) * kcalPerMin
+
+        Task {
+            try? await readinessService.saveWorkout(
+                activityType: activityType,
+                start: startDate, end: end,
+                energyKcal: estimatedKcal > 0 ? estimatedKcal : nil
+            )
+            appState.acceptTodaySession()
+            dismiss()
         }
     }
 }

@@ -141,6 +141,18 @@ final class AppState: ObservableObject {
     /// Plan tab view mode (input vs generated).
     @Published var planMode: PlanMode = .generated
 
+    // MARK: Phase 3 state
+
+    @Published var planLocked: Bool = UserDefaults.standard.bool(forKey: "planLocked")
+    @Published var todaySessionAccepted: Bool = false
+    @Published var todayForcesOriginalPlan: Bool = false
+    @Published var needsNewWeekPlan: Bool = false
+
+    private var weekStartDate: Date {
+        get { UserDefaults.standard.object(forKey: "weekStartDate") as? Date ?? .distantPast }
+        set { UserDefaults.standard.set(newValue, forKey: "weekStartDate") }
+    }
+
     var readinessSnapshot: ReadinessSnapshot {
         MockData.readiness(for: readinessState)
     }
@@ -217,8 +229,15 @@ final class AppState: ObservableObject {
         selectedGoals = []
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",
                            weightLb: 0, goalWeightLb: 0, description: "")
+        planLocked = false
+        todaySessionAccepted = false
+        todayForcesOriginalPlan = false
+        needsNewWeekPlan = false
+        currentPlan = MockData.hybridWeek
         UserDefaults.standard.set(false, forKey: "hasOnboarded")
         UserDefaults.standard.set(false, forKey: "watchConnected")
+        UserDefaults.standard.set(false, forKey: "planLocked")
+        UserDefaults.standard.removeObject(forKey: "weekStartDate")
         clearStore()
     }
 
@@ -270,6 +289,252 @@ final class AppState: ObservableObject {
             approach: generated.approach
         )
         planMode = .generated
+        planLocked = false
+    }
+
+    // MARK: - 3.3 Readiness-driven adjustment
+
+    struct AdjustedWorkout {
+        let title: String
+        let name: String
+        let meta: String
+        let chips: [String]
+        let tag: String          // "As planned" | "Adjusted"
+        let kcalTarget: Int
+        let macros: Macros
+        let macroTag: String
+    }
+
+    func adjustedTodayWorkout(readiness: ReadinessState) -> AdjustedWorkout {
+        let weekLabel = "Today · Week \(currentPlan.weekIndex) of \(currentPlan.totalWeeks)"
+        let todayDay = currentPlan.days.first(where: { $0.isToday })
+        let main = todayDay?.sessions.first(where: { $0.kind != .yoga && $0.kind != .rest })
+                ?? todayDay?.sessions.first
+
+        guard let session = main else {
+            let mock = MockData.readiness(for: readiness)
+            return AdjustedWorkout(title: mock.workoutTitle, name: mock.workoutName,
+                                   meta: mock.workoutMeta, chips: mock.workoutChips,
+                                   tag: mock.workoutTag, kcalTarget: mock.kcalTarget,
+                                   macros: mock.macros, macroTag: mock.macroTag)
+        }
+
+        switch readiness {
+        case .green:
+            let (kcal, macros, macroTag) = macroTargets(for: session.kind, readiness: .green)
+            return AdjustedWorkout(
+                title: weekLabel,
+                name: session.name,
+                meta: "~\(session.durationMin) min · \(kindLabel(session.kind)) · Moderate-high",
+                chips: sessionChips(session: session, readiness: .green),
+                tag: "As planned",
+                kcalTarget: kcal, macros: macros, macroTag: macroTag
+            )
+        case .yellow:
+            let reduced = session.durationMin * 4 / 5
+            let (kcal, macros, macroTag) = macroTargets(for: session.kind, readiness: .yellow)
+            return AdjustedWorkout(
+                title: weekLabel,
+                name: session.name + ", lighter",
+                meta: "~\(reduced) min · \(kindLabel(session.kind)) · Moderate",
+                chips: sessionChips(session: session, readiness: .yellow),
+                tag: "Adjusted",
+                kcalTarget: kcal, macros: macros, macroTag: macroTag
+            )
+        case .red:
+            let (kcal, macros, macroTag) = macroTargets(for: session.kind, readiness: .red)
+            return AdjustedWorkout(
+                title: weekLabel,
+                name: "Easy Z2 walk + mobility",
+                meta: "~30 min · Recovery",
+                chips: ["20 min easy walk", "~110 bpm cap", "10 min mobility"],
+                tag: "Adjusted",
+                kcalTarget: kcal, macros: macros, macroTag: macroTag
+            )
+        }
+    }
+
+    private func kindLabel(_ kind: SessionKind) -> String {
+        switch kind {
+        case .lift: return "Lift"
+        case .run:  return "Run"
+        case .yoga: return "Yoga"
+        case .rest: return "Recovery"
+        }
+    }
+
+    private func sessionChips(session: PlanSession, readiness: ReadinessState) -> [String] {
+        let n = session.name.lowercased()
+        switch readiness {
+        case .green:
+            switch session.kind {
+            case .lift where n.contains("lower"):
+                return ["Back squat 4×6", "RDL 3×8", "Walking lunge 3×10", "Calf raise 3×12"]
+            case .lift where n.contains("upper"):
+                return ["Bench press 4×6", "Bent row 3×8", "OHP 3×8", "Pull-ups 3×AMRAP"]
+            case .lift:
+                return ["Squat 3×6", "Bench 3×8", "Row 3×8", "Accessory work"]
+            case .run where n.contains("tempo"):
+                return ["10 min warm-up", "4×5 min tempo", "2 min recovery walk", "Cool-down"]
+            case .run:
+                return ["Easy conversational pace", "Zone 2 effort", "Heart rate < 140 bpm"]
+            case .yoga:
+                return [session.name, "Focus on breath", "Hold 45–60 s per pose"]
+            case .rest:
+                return ["Light walk", "Mobility work", "Foam rolling"]
+            }
+        case .yellow:
+            switch session.kind {
+            case .lift:
+                return ["\(session.name) (−20% load)", "Shorter rest periods", "Skip accessories"]
+            case .run:
+                return ["Easy Zone 2 only", "Cap effort at 7/10", "Shorten if needed"]
+            case .yoga:
+                return [session.name, "Gentle pace today"]
+            case .rest:
+                return ["Light walk only", "Mobility work"]
+            }
+        case .red:
+            return ["20 min easy walk", "~110 bpm cap", "10 min mobility"]
+        }
+    }
+
+    private func macroTargets(for kind: SessionKind, readiness: ReadinessState) -> (Int, Macros, String) {
+        switch readiness {
+        case .green:
+            switch kind {
+            case .lift: return (2180, Macros(carbsG: 220, proteinG: 175, fatG: 75), "Lift day · +protein")
+            case .run:  return (2200, Macros(carbsG: 240, proteinG: 165, fatG: 70), "Run day · +carbs")
+            case .yoga: return (1950, Macros(carbsG: 195, proteinG: 155, fatG: 72), "Light day")
+            case .rest: return (1800, Macros(carbsG: 160, proteinG: 160, fatG: 70), "Rest day · −carbs")
+            }
+        case .yellow:
+            return (2080, Macros(carbsG: 200, proteinG: 170, fatG: 75), "Moderate day")
+        case .red:
+            return (1920, Macros(carbsG: 160, proteinG: 175, fatG: 75), "Recovery · −carbs")
+        }
+    }
+
+    // MARK: - 3.4 Plan actions
+
+    func lockPlan() {
+        planLocked = true
+        UserDefaults.standard.set(true, forKey: "planLocked")
+    }
+
+    func acceptTodaySession() {
+        todaySessionAccepted = true
+    }
+
+    func forceOriginalPlan() {
+        todayForcesOriginalPlan = true
+    }
+
+    func setFullRestDay() {
+        guard let idx = currentPlan.days.firstIndex(where: { $0.isToday }) else { return }
+        currentPlan.days[idx] = PlanDay(
+            weekday: currentPlan.days[idx].weekday,
+            dayNumber: currentPlan.days[idx].dayNumber,
+            tag: "Full rest",
+            isToday: true,
+            sessions: [PlanSession(kind: .rest, name: "Full rest day", durationMin: 0)]
+        )
+        todaySessionAccepted = true
+    }
+
+    func moveTodayToTomorrow() {
+        guard let todayIdx = currentPlan.days.firstIndex(where: { $0.isToday }),
+              todayIdx + 1 < currentPlan.days.count else { return }
+        let tomorrowIdx = todayIdx + 1
+
+        // Swap sessions and tags; dates/weekdays stay anchored to their day
+        let todaySessions = currentPlan.days[todayIdx].sessions
+        let todayTag = currentPlan.days[todayIdx].tag
+        let tmrwSessions = currentPlan.days[tomorrowIdx].sessions
+        let tmrwTag = currentPlan.days[tomorrowIdx].tag
+
+        currentPlan.days[todayIdx] = PlanDay(
+            weekday: currentPlan.days[todayIdx].weekday,
+            dayNumber: currentPlan.days[todayIdx].dayNumber,
+            tag: tmrwTag,
+            isToday: true,
+            sessions: tmrwSessions
+        )
+        currentPlan.days[tomorrowIdx] = PlanDay(
+            weekday: currentPlan.days[tomorrowIdx].weekday,
+            dayNumber: currentPlan.days[tomorrowIdx].dayNumber,
+            tag: todayTag,
+            isToday: false,
+            sessions: todaySessions
+        )
+        todaySessionAccepted = false
+    }
+
+    func swapDays(a: Int, b: Int) {
+        guard a != b,
+              a < currentPlan.days.count,
+              b < currentPlan.days.count else { return }
+        let aSessions = currentPlan.days[a].sessions
+        let aTag = currentPlan.days[a].tag
+        currentPlan.days[a] = PlanDay(
+            weekday: currentPlan.days[a].weekday,
+            dayNumber: currentPlan.days[a].dayNumber,
+            tag: currentPlan.days[b].tag,
+            isToday: currentPlan.days[a].isToday,
+            sessions: currentPlan.days[b].sessions
+        )
+        currentPlan.days[b] = PlanDay(
+            weekday: currentPlan.days[b].weekday,
+            dayNumber: currentPlan.days[b].dayNumber,
+            tag: aTag,
+            isToday: currentPlan.days[b].isToday,
+            sessions: aSessions
+        )
+    }
+
+    // MARK: - 3.5 Week progression
+
+    func advanceWeekIfNeeded() {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let weekday = cal.component(.weekday, from: today)
+        let daysFromMon = (weekday + 5) % 7
+        guard let thisMonday = cal.date(byAdding: .day, value: -daysFromMon, to: today) else { return }
+
+        guard thisMonday > weekStartDate else { return }
+        weekStartDate = thisMonday
+
+        // Reset daily state for the new week
+        todaySessionAccepted = false
+        todayForcesOriginalPlan = false
+        planLocked = false
+        UserDefaults.standard.set(false, forKey: "planLocked")
+
+        guard currentPlan.weekIndex < currentPlan.totalWeeks else {
+            needsNewWeekPlan = false  // block complete
+            return
+        }
+
+        let nextIndex = currentPlan.weekIndex + 1
+        let progress = Double(nextIndex) / Double(currentPlan.totalWeeks)
+        let nextPhase: String
+        switch progress {
+        case ..<0.34: nextPhase = "Base"
+        case ..<0.67: nextPhase = "Build"
+        case ..<0.84: nextPhase = "Peak"
+        default:      nextPhase = "Taper"
+        }
+
+        // Placeholder plan — FM will generate the real one from PlanInputView
+        currentPlan = WeekPlan(
+            weekIndex: nextIndex,
+            totalWeeks: currentPlan.totalWeeks,
+            phase: nextPhase,
+            days: currentPlan.days,
+            summary: "Week \(nextIndex) — tap Generate to build your personalised plan.",
+            approach: currentPlan.approach
+        )
+        needsNewWeekPlan = true
     }
 }
 
