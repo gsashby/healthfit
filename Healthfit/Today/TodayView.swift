@@ -485,7 +485,7 @@ private struct WorkoutExercise: Identifiable {
 
 // ─── Exercise description lookup ──────────────────────────────────────────────
 
-private func exerciseCue(for name: String) -> String {
+private func exerciseCue(for name: String, reps: String = "8") -> String {
     let key = name.lowercased()
     let cues: [(String, String)] = [
         ("back squat",    "Bar on upper traps, feet shoulder-width. Brace core, sit back and down, drive knees over toes. Stand through heels."),
@@ -505,8 +505,27 @@ private func exerciseCue(for name: String) -> String {
         ("mobility",      "Move through gentle ranges. Hold each stretch 20–30 s. Never bounce or force."),
         ("yoga",          "Synchronize breath with movement. Relax into each pose; don't force range of motion."),
     ]
-    for (k, v) in cues where key.contains(k) { return v }
-    return "Focus on controlled movement. Maintain form over load — quality reps drive results."
+    let formCue = cues.first(where: { key.contains($0.0) })?.1
+        ?? "Focus on controlled movement. Maintain form over load — quality reps drive results."
+    return formCue + "\n\n" + rirTargetCue(for: reps)
+}
+
+/// Returns a concise RIR effort target based on the planned rep count.
+private func rirTargetCue(for reps: String) -> String {
+    if reps.lowercased() == "amrap" {
+        return "Effort target: go to technical failure — stop at the last rep where your form is solid, not one rep further."
+    }
+    let n = Int(reps) ?? 8
+    switch n {
+    case ...3:
+        return "Effort target: 1 RIR (Reps In Reserve). It should feel like a hard grind; if you genuinely cannot do one more rep with good form, you're right at the limit. Reduce weight if you reach 0 RIR on set 1."
+    case 4...6:
+        return "Effort target: 1–2 RIR. Stop when you have 1–2 strong reps left. The last rep should feel tough but controlled — never a grind that breaks your form."
+    case 7...10:
+        return "Effort target: 2–3 RIR. Stop before form starts to crack. Some muscular burn is expected; if your tempo slows significantly or your chest drops, that's your stop point."
+    default:
+        return "Effort target: 3–4 RIR. Higher rep sets build capacity — the burn will come early. Keep a steady tempo and stop 3–4 reps before full failure."
+    }
 }
 
 // ─── RIR option definition ────────────────────────────────────────────────────
@@ -1110,7 +1129,7 @@ struct WorkoutSessionView: View {
             let repsStr = String(chip[xr.upperBound...]).trimmingCharacters(in: .whitespaces)
             let defaultReps = Int(repsStr) ?? 8
             let sets = (0..<setCount).map { _ in WorkoutSet(targetReps: repsStr, completedReps: defaultReps) }
-            return WorkoutExercise(name: name, description: exerciseCue(for: name), sets: sets)
+            return WorkoutExercise(name: name, description: exerciseCue(for: name, reps: repsStr), sets: sets)
         }
     }
 
