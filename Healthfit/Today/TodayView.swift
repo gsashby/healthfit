@@ -534,6 +534,7 @@ struct WorkoutSessionView: View {
     @State private var exercises: [WorkoutExercise] = []
     @State private var isSaving = false
     @State private var showSummary = false
+    @FocusState private var weightFieldFocused: Bool
 
     private let startDate = Date()
     private let timerPublisher = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -796,9 +797,10 @@ struct WorkoutSessionView: View {
             .font(.system(size: 12, weight: .semibold))
             .textCase(.uppercase).tracking(0.5)
 
-            // Weight stepper
+            // Weight input — ±5 lb buttons + direct numeric keyboard entry
             HStack(spacing: 0) {
                 Button {
+                    weightFieldFocused = false
                     withAnimation(.spring(response: 0.2)) {
                         exercises[exIdx].sets[setIdx].weightLbs =
                             max(0, exercises[exIdx].sets[setIdx].weightLbs - 5)
@@ -808,16 +810,50 @@ struct WorkoutSessionView: View {
                         .foregroundColor(set.weightLbs > 0 ? Theme.blue : Theme.card2)
                 }
                 .disabled(set.weightLbs <= 0)
+
                 Spacer()
-                VStack(spacing: 2) {
-                    Text(set.weightLbs > 0 ? wStr(set.weightLbs) : "—")
+
+                VStack(spacing: 4) {
+                    // Tap the number to open the keypad for direct entry
+                    let weightBinding = Binding<String>(
+                        get: {
+                            let w = exercises[exIdx].sets[setIdx].weightLbs
+                            return w > 0 ? wStr(w) : ""
+                        },
+                        set: { str in
+                            let cleaned = str.replacingOccurrences(of: ",", with: ".")
+                            if let val = Double(cleaned), val >= 0 {
+                                exercises[exIdx].sets[setIdx].weightLbs = val
+                            } else if str.isEmpty {
+                                exercises[exIdx].sets[setIdx].weightLbs = 0
+                            }
+                        }
+                    )
+                    TextField("—", text: weightBinding)
                         .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(set.weightLbs > 0 ? Theme.text : Theme.textMuted)
-                        .contentTransition(.numericText())
-                    Text("lbs · 5 lb steps").font(.system(size: 11)).foregroundColor(Theme.textMuted)
+                        .foregroundColor(Theme.text)
+                        .multilineTextAlignment(.center)
+                        .frame(minWidth: 80)
+                        .focused($weightFieldFocused)
+                        #if canImport(UIKit)
+                        .keyboardType(.decimalPad)
+                        #endif
+                        .toolbar {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button("Done") { weightFieldFocused = false }
+                                    .fontWeight(.semibold)
+                            }
+                        }
+
+                    Text("lbs  ·  tap to type  or  ±5")
+                        .font(.system(size: 11)).foregroundColor(Theme.textMuted)
                 }
+
                 Spacer()
+
                 Button {
+                    weightFieldFocused = false
                     withAnimation(.spring(response: 0.2)) {
                         exercises[exIdx].sets[setIdx].weightLbs += 5
                     }
