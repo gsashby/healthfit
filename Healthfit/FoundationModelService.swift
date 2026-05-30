@@ -228,6 +228,50 @@ final class FoundationModelService: ObservableObject {
                      "Original message: \(reasoning)"
         return (try? await session.respond(to: prompt).content) ?? reasoning
     }
+
+    // MARK: - Proactive nutrition nudge
+
+    /// Generates one concise coaching sentence about the user's nutrition progress today.
+    /// Falls back to an empty string — callers provide their own rule-based fallback.
+    func generateCoachNudge(
+        kcalLogged: Int,
+        kcalTarget: Int,
+        proteinLoggedG: Int,
+        proteinTargetG: Int,
+        sessionKind: String,
+        userName: String
+    ) async -> String {
+        guard isAvailable else { return "" }
+        let session = LanguageModelSession(instructions:
+            "You are a concise personal fitness coach. Write exactly one motivating sentence " +
+            "(under 25 words) about the user's nutrition progress today. " +
+            "Be specific and actionable. Plain text only. Address the user by first name.")
+        let prompt = """
+            Name: \(userName). Today's session: \(sessionKind).
+            Logged so far: \(kcalLogged) kcal, \(proteinLoggedG)g protein.
+            Daily targets: \(kcalTarget) kcal, \(proteinTargetG)g protein.
+            """
+        return (try? await session.respond(to: prompt).content) ?? ""
+    }
+
+    // MARK: - End-of-week summary
+
+    /// Generates a short end-of-week coaching summary for the Today tab.
+    func generateWeekSummary(
+        weekIndex: Int,
+        totalWeeks: Int,
+        phase: String,
+        userName: String
+    ) async -> String {
+        guard isAvailable else { return "" }
+        let session = LanguageModelSession(instructions:
+            "You are a motivating fitness coach. Write 1–2 sentences (under 40 words) " +
+            "celebrating the user completing a training week and encouraging them to keep going. " +
+            "Plain text only. Address the user by first name.")
+        let prompt = "Name: \(userName). Just completed week \(weekIndex) of \(totalWeeks) " +
+                     "(\(phase) phase). Encourage them to generate their next week's plan."
+        return (try? await session.respond(to: prompt).content) ?? ""
+    }
 }
 
 // MARK: - Supporting types

@@ -146,10 +146,11 @@ All AI in HealthFit runs on-device via Apple's Foundation Models framework. No d
 - Context (readiness score, plan week) injected into each prompt automatically
 - Graceful unavailable state shown on non-Apple Intelligence devices
 
-### 5.3 Proactive Coach Nudges
-- Surface coach suggestions on the Today tab (e.g., "You're under on protein — add a shake before your lift")
-- Generate a brief end-of-week summary when the plan week closes
-- `FoundationModelService.enhanceReadinessReasoning(_:userName:state:)` can personalise the morning briefing text
+### 5.3 Proactive Coach Nudges ✅ (implemented)
+- **Personalized morning briefing** — `enhanceReadinessReasoning` is now wired into `TodayView`; reasoning text shows the rule-based version immediately, then updates in-place with the AI-personalised version (uses the user's first name and a warmer tone)
+- **Nutrition nudge card** — appears below the nutrition section on Today tab; rule-based immediately (checks protein gap > 40g, calorie gap > 500 kcal, on-track, nothing logged); AI-enhanced via `generateCoachNudge` when Apple Intelligence is available
+- **End-of-week summary card** — appears above the readiness card when `needsNewWeekPlan` is true; shows completed week number, an AI-generated or rule-based summary sentence, and a "Plan Week N →" button that opens the Plan input view
+- All three FM calls are fired concurrently via `async let` after readiness fetches; no FM = silent fallback to rule-based text throughout
 
 ---
 

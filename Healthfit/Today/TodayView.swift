@@ -12,9 +12,14 @@ struct TodayView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var readinessService: ReadinessService
+    @EnvironmentObject var fmService: FoundationModelService
     @State private var showSettings = false
-
     @State private var showWorkoutSession = false
+
+    // 5.3 — proactive nudges
+    @State private var enhancedReasoning: String? = nil
+    @State private var coachNudge: String? = nil
+    @State private var weekSummaryText: String? = nil
 
     // Live HealthKit data is suppressed when user taps "Keep original".
     private var activeReadiness: ReadinessState {
@@ -61,12 +66,14 @@ struct TodayView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     header
+                    if appState.needsNewWeekPlan { weekSummaryCard }
                     readinessCard
                     vitalsRow
                     workoutCard
                     reasoningCard
                     actionsRow
                     nutritionCard
+                    nudgeCard
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 28)
@@ -94,6 +101,45 @@ struct TodayView: View {
             if appState.watchConnected {
                 await readinessService.fetchReadiness()
             }
+            guard fmService.isAvailable else { return }
+
+            // 1. Personalize the morning briefing with the user's name.
+            async let reasoning = fmService.enhanceReadinessReasoning(
+                snapshot.reasoning,
+                userName: appState.user.name.isEmpty ? "there" : appState.user.name,
+                state: activeReadiness
+            )
+
+            // 2. Generate a nutrition nudge based on today's logged meals vs targets.
+            let kcalLogged    = appState.todayFoodLog.reduce(0) { $0 + $1.kcal }
+            let proteinLogged = appState.todayFoodLog.reduce(0) { $0 + $1.macros.proteinG }
+            let todayKind     = appState.currentPlan.days
+                .first(where: { $0.isToday })?
+                .sessions.first(where: { $0.kind == .lift || $0.kind == .run })?
+                .kind
+            async let nudge = fmService.generateCoachNudge(
+                kcalLogged: kcalLogged,
+                kcalTarget: snapshot.kcalTarget,
+                proteinLoggedG: proteinLogged,
+                proteinTargetG: snapshot.macros.proteinG,
+                sessionKind: todayKind == .lift ? "strength training"
+                           : todayKind == .run  ? "running" : "rest / recovery",
+                userName: appState.user.name.isEmpty ? "there" : appState.user.name
+            )
+
+            // 3. Generate an end-of-week summary if the week just rolled over.
+            async let summary: String? = appState.needsNewWeekPlan
+                ? fmService.generateWeekSummary(
+                    weekIndex: max(1, appState.currentPlan.weekIndex - 1),
+                    totalWeeks: appState.currentPlan.totalWeeks,
+                    phase: appState.currentPlan.phase,
+                    userName: appState.user.name.isEmpty ? "there" : appState.user.name)
+                : nil
+
+            let (r, n, s) = await (reasoning, nudge, summary)
+            enhancedReasoning = r
+            if !n.isEmpty { coachNudge = n }
+            weekSummaryText = s
         }
         .sheet(isPresented: $showWorkoutSession) {
             if let todayDay = appState.currentPlan.days.first(where: { $0.isToday }),
@@ -196,7 +242,7 @@ struct TodayView: View {
     private var reasoningCard: some View {
         ReasoningCallout(
             title: snapshot.state == .green ? "Why this session." : "Why we adjusted.",
-            message: snapshot.reasoning,
+            message: enhancedReasoning ?? snapshot.reasoning,
             tint: accent
         )
     }
@@ -266,6 +312,79 @@ struct TodayView: View {
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.top, 6)
+    }
+
+    // MARK: Coach nudge (5.3)
+
+    private var nudgeFallbackText: String {
+        let logged = appState.todayFoodLog
+        guard !logged.isEmpty else {
+            return "No meals logged yet — head to the Eat tab to start tracking your nutrition."
+        }
+        let kcalLogged   = logged.reduce(0) { $0 + $1.kcal }
+        let proteinLogged = logged.reduce(0) { $0 + $1.macros.proteinG }
+        let kcalTarget    = snapshot.kcalTarget
+        let proteinTarget = snapshot.macros.proteinG
+        let proteinGap    = proteinTarget - proteinLogged
+        let kcalGap       = kcalTarget - kcalLogged
+
+        if proteinGap > 40 {
+            return "You're \(proteinGap)g short on protein — a high-protein meal or shake will hit the spot."
+        } else if kcalGap > 500 {
+            return "You've logged \(kcalLogged) of \(kcalTarget) kcal. Keep fuelling to hit your target."
+        } else if proteinGap <= 10 && kcalGap <= 150 {
+            return "Nutrition is on point today — protein and calories are right on target."
+        } else {
+            return "\(kcalLogged) kcal and \(proteinLogged)g protein logged. \(max(0, kcalGap)) kcal and \(max(0, proteinGap))g protein still to go."
+        }
+    }
+
+    private var nudgeCard: some View {
+        ReasoningCallout(
+            title: "Coach.",
+            message: coachNudge ?? nudgeFallbackText,
+            tint: Theme.purple,
+            iconText: "C"
+        )
+    }
+
+    // MARK: Week summary (5.3)
+
+    private var weekSummaryCard: some View {
+        let completedWeek = max(1, appState.currentPlan.weekIndex - 1)
+        let nextWeek      = appState.currentPlan.weekIndex
+        let total         = appState.currentPlan.totalWeeks
+        let fallback      = "Week \(completedWeek) of \(total) is in the books. Ready to build on it — generate your Week \(nextWeek) plan below."
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Week \(completedWeek) complete").eyebrow()
+                Spacer()
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Theme.green)
+                    .font(.system(size: 16))
+            }
+            Text(weekSummaryText ?? fallback)
+                .font(.system(size: 14))
+                .foregroundColor(Theme.text)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                appState.needsNewWeekPlan = false
+                appState.planMode = .input
+            } label: {
+                Text("Plan Week \(nextWeek) →")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Theme.blue)
+            }
+        }
+        .padding(16)
+        .background(Theme.green.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.green.opacity(0.3), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: Toolbar
@@ -1359,5 +1478,6 @@ private struct WorkoutSummaryView: View {
         .environmentObject(AppState())
         .environmentObject(AuthService())
         .environmentObject(ReadinessService())
+        .environmentObject(FoundationModelService())
         .preferredColorScheme(.dark)
 }
