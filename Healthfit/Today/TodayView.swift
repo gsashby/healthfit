@@ -67,6 +67,7 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     header
                     if appState.needsNewWeekPlan { weekSummaryCard }
+                    watchDataBanner
                     readinessCard
                     vitalsRow
                     workoutCard
@@ -103,43 +104,41 @@ struct TodayView: View {
             }
             guard fmService.isAvailable else { return }
 
-            // 1. Personalize the morning briefing with the user's name.
-            async let reasoning = fmService.enhanceReadinessReasoning(
-                snapshot.reasoning,
-                userName: appState.user.name.isEmpty ? "there" : appState.user.name,
-                state: activeReadiness
+            // Foundation Models cannot handle concurrent sessions — run sequentially.
+            let name = appState.user.name.isEmpty ? "there" : appState.user.name
+
+            // 1. Personalise the morning briefing.
+            enhancedReasoning = await fmService.enhanceReadinessReasoning(
+                snapshot.reasoning, userName: name, state: activeReadiness
             )
 
-            // 2. Generate a nutrition nudge based on today's logged meals vs targets.
+            // 2. Nutrition nudge based on today's logged meals vs targets.
             let kcalLogged    = appState.todayFoodLog.reduce(0) { $0 + $1.kcal }
             let proteinLogged = appState.todayFoodLog.reduce(0) { $0 + $1.macros.proteinG }
             let todayKind     = appState.currentPlan.days
                 .first(where: { $0.isToday })?
                 .sessions.first(where: { $0.kind == .lift || $0.kind == .run })?
                 .kind
-            async let nudge = fmService.generateCoachNudge(
+            let n = await fmService.generateCoachNudge(
                 kcalLogged: kcalLogged,
                 kcalTarget: snapshot.kcalTarget,
                 proteinLoggedG: proteinLogged,
                 proteinTargetG: snapshot.macros.proteinG,
                 sessionKind: todayKind == .lift ? "strength training"
                            : todayKind == .run  ? "running" : "rest / recovery",
-                userName: appState.user.name.isEmpty ? "there" : appState.user.name
+                userName: name
             )
+            if !n.isEmpty { coachNudge = n }
 
-            // 3. Generate an end-of-week summary if the week just rolled over.
-            async let summary: String? = appState.needsNewWeekPlan
-                ? fmService.generateWeekSummary(
+            // 3. End-of-week summary (only when the week has just rolled over).
+            if appState.needsNewWeekPlan {
+                weekSummaryText = await fmService.generateWeekSummary(
                     weekIndex: max(1, appState.currentPlan.weekIndex - 1),
                     totalWeeks: appState.currentPlan.totalWeeks,
                     phase: appState.currentPlan.phase,
-                    userName: appState.user.name.isEmpty ? "there" : appState.user.name)
-                : nil
-
-            let (r, n, s) = await (reasoning, nudge, summary)
-            enhancedReasoning = r
-            if !n.isEmpty { coachNudge = n }
-            weekSummaryText = s
+                    userName: name
+                )
+            }
         }
         .sheet(isPresented: $showWorkoutSession) {
             if let todayDay = appState.currentPlan.days.first(where: { $0.isToday }),
@@ -153,6 +152,44 @@ struct TodayView: View {
                 .environmentObject(readinessService)
             }
         }
+    }
+
+    // MARK: Watch data warning
+
+    @ViewBuilder
+    private var watchDataBanner: some View {
+        if !appState.watchConnected {
+            watchWarningRow(
+                icon: "applewatch",
+                message: "Connect Apple Watch to get live readiness data. Go to Settings › Health to grant access."
+            )
+        } else if readinessService.latestData == nil && !readinessService.isLoading {
+            watchWarningRow(
+                icon: "exclamationmark.triangle",
+                message: "No Watch data yet — wear your Apple Watch overnight and reopen the app."
+            )
+        }
+    }
+
+    private func watchWarningRow(icon: String, message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Theme.yellow)
+            Text(message)
+                .font(.system(size: 13))
+                .foregroundColor(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.yellow.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Theme.yellow.opacity(0.3), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: Header
