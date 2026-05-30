@@ -103,6 +103,8 @@ final class FoundationModelService: ObservableObject {
         userDescription: String,
         profile: UserProfile,
         goals: Set<FitnessGoal>,
+        trainingType: TrainingType?,
+        strengthSplit: StrengthSplit?,
         readinessState: ReadinessState
     ) async throws -> GeneratedPlan {
         guard isAvailable else { throw FMError.notAvailable }
@@ -110,18 +112,51 @@ final class FoundationModelService: ObservableObject {
         let session = LanguageModelSession(instructions: """
             You are a certified strength and conditioning coach. Generate structured,
             periodised weekly training plans. Be specific about exercise names.
+            Strictly honour the training type and strength split structure the athlete has chosen.
             """)
 
-        let prompt = """
-            Create a 7-day workout plan for this athlete:
-            • Age: \(profile.age), Sex: \(profile.sexAtBirth)
-            • Current weight: \(Int(profile.weightLb)) lbs → Goal: \(Int(profile.goalWeightLb)) lbs
-            • Goals: \(goals.map(\.rawValue).joined(separator: ", "))
-            • Today's readiness: \(readinessState.label) — \(readinessState.verdict)
-            • Athlete's own description: "\(userDescription)"
-            """
+        var promptLines = [
+            "Create a 7-day workout plan for this athlete:",
+            "• Age: \(profile.age), Sex: \(profile.sexAtBirth)",
+            "• Current weight: \(Int(profile.weightLb)) lbs → Goal: \(Int(profile.goalWeightLb)) lbs",
+            "• Training type: \(trainingType?.planDescription ?? "General fitness")",
+        ]
 
-        return try await session.respond(to: prompt, generating: GeneratedPlan.self).content
+        if let split = strengthSplit {
+            promptLines.append("• Strength structure: \(split.planDescription)")
+            switch split {
+            case .fullBody:
+                promptLines.append(
+                    "  CRITICAL: Every single lift session MUST be a full-body workout — " +
+                    "do NOT create separate upper-body or lower-body days. " +
+                    "Every strength session must include a lower-body compound (squat or hinge), " +
+                    "an upper-body push (press), and an upper-body pull (row or pull). " +
+                    "Name each lift session starting with 'Full body strength —' followed by the main movements, " +
+                    "e.g. 'Full body strength — squat, bench, row, RDL'.")
+            case .ppl:
+                promptLines.append(
+                    "  Cycle lift sessions strictly through Push → Pull → Lower in order, then repeat. " +
+                    "Push = chest, shoulders, triceps. Pull = back, biceps. Lower = quads, hamstrings, glutes. " +
+                    "Name each session to reflect the day: 'Push — bench, OHP, triceps', " +
+                    "'Pull — row, pull-ups, curls', 'Lower — squat, RDL, lunges'.")
+            case .upperLower:
+                promptLines.append(
+                    "  Alternate lift sessions strictly between upper body and lower body. " +
+                    "Upper = chest, back, shoulders, arms. Lower = quads, hamstrings, glutes, calves. " +
+                    "Name each session accordingly: 'Upper — bench, row, OHP' or 'Lower — squat, RDL, lunges'.")
+            }
+        }
+
+        promptLines += [
+            "• Goals: \(goals.map(\.rawValue).joined(separator: ", "))",
+            "• Today's readiness: \(readinessState.label) — \(readinessState.verdict)",
+            "• Athlete's own description: \"\(userDescription)\"",
+        ]
+
+        return try await session.respond(
+            to: promptLines.joined(separator: "\n"),
+            generating: GeneratedPlan.self
+        ).content
     }
 
     // MARK: - Input parsing

@@ -51,6 +51,130 @@ enum FitnessGoal: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Training Type (onboarding)
+
+enum TrainingType: String, Codable, CaseIterable, Identifiable {
+    case strength           = "Strength training"
+    case running            = "Running"
+    case functionalFitness  = "Functional fitness"
+    case hybridRunStrength  = "Hybrid: Running & strength"
+    case biking             = "Biking"
+    case hybridRunBiking    = "Hybrid: Running & biking"
+    case hybridAll          = "Hybrid: Running, biking & strength"
+
+    var id: String { rawValue }
+
+    var emoji: String {
+        switch self {
+        case .strength:          return "🏋️"
+        case .running:           return "🏃"
+        case .functionalFitness: return "🤸"
+        case .hybridRunStrength: return "⚡️"
+        case .biking:            return "🚴"
+        case .hybridRunBiking:   return "🚵"
+        case .hybridAll:         return "🔥"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .strength:          return "Compound lifts, progressive overload"
+        case .running:           return "Road, track, or trail — all distances"
+        case .functionalFitness: return "Bodyweight, HIIT, and mobility work"
+        case .hybridRunStrength: return "Balance running and weight training"
+        case .biking:            return "Road cycling, mountain bike, or indoor"
+        case .hybridRunBiking:   return "Combine two endurance disciplines"
+        case .hybridAll:         return "Run, ride, and lift — the full picture"
+        }
+    }
+
+    var isHybrid: Bool {
+        switch self {
+        case .hybridRunStrength, .hybridRunBiking, .hybridAll: return true
+        default: return false
+        }
+    }
+
+    var includesStrength: Bool {
+        switch self {
+        case .strength, .hybridRunStrength, .hybridAll: return true
+        default: return false
+        }
+    }
+
+    var includesRun: Bool {
+        switch self {
+        case .running, .hybridRunStrength, .hybridRunBiking, .hybridAll: return true
+        default: return false
+        }
+    }
+
+    /// Human-readable description passed to the AI prompt.
+    var planDescription: String {
+        switch self {
+        case .strength:          return "Pure strength training — no aerobic sessions"
+        case .running:           return "Running / endurance only — no lifting"
+        case .functionalFitness: return "Functional fitness — bodyweight, HIIT, and mobility"
+        case .hybridRunStrength: return "Hybrid: running and strength training combined"
+        case .biking:            return "Cycling — road, indoor, or mountain bike"
+        case .hybridRunBiking:   return "Hybrid: running and cycling combined"
+        case .hybridAll:         return "Hybrid: running, cycling, and strength training combined"
+        }
+    }
+
+    var priorityOptions: [(label: String, emoji: String)] {
+        switch self {
+        case .hybridRunStrength: return [("Running", "🏃"), ("Strength", "🏋️")]
+        case .hybridRunBiking:   return [("Running", "🏃"), ("Biking", "🚴")]
+        case .hybridAll:         return [("Running", "🏃"), ("Biking", "🚴"), ("Strength", "🏋️")]
+        default: return []
+        }
+    }
+}
+
+// MARK: - Strength Split (onboarding)
+
+enum StrengthSplit: String, Codable, CaseIterable, Identifiable {
+    case fullBody   = "Full body"
+    case ppl        = "Push, Pull, Lower (PPL)"
+    case upperLower = "Upper & lower split"
+
+    var id: String { rawValue }
+
+    var emoji: String {
+        switch self {
+        case .fullBody:   return "💪"
+        case .ppl:        return "🔁"
+        case .upperLower: return "↕️"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .fullBody:   return "Train all muscle groups in every session"
+        case .ppl:        return "Rotate through push, pull, and lower days"
+        case .upperLower: return "Alternate upper and lower body sessions"
+        }
+    }
+
+    /// Injected verbatim into the AI prompt so the model understands the split structure.
+    var planDescription: String {
+        switch self {
+        case .fullBody:
+            return "Full body — every strength session trains all major muscle groups " +
+                   "(squat, hinge, push, pull, carry pattern)"
+        case .ppl:
+            return "Push/Pull/Lower (PPL) — cycle strength days through " +
+                   "Push (chest, shoulders, triceps), Pull (back, biceps), " +
+                   "and Lower (quads, hamstrings, glutes) in that order"
+        case .upperLower:
+            return "Upper & lower split — alternate strength days between " +
+                   "upper body (chest, back, shoulders, arms) and " +
+                   "lower body (quads, hamstrings, glutes, calves)"
+        }
+    }
+}
+
 // MARK: - Readiness (Today briefing)
 
 enum ReadinessState: String, CaseIterable, Identifiable {
@@ -210,6 +334,10 @@ final class PersistedProfile {
     var selectedGoalIDs: [String] = []
     var hasOnboarded: Bool = false
     var watchConnected: Bool = false
+    var trainingTypeID: String = ""
+    var daysPerWeek: Int = 4
+    var prioritizedDiscipline: String = ""
+    var strengthSplitID: String = ""
 
     init() {}
 
@@ -221,5 +349,13 @@ final class PersistedProfile {
 
     var selectedGoals: Set<FitnessGoal> {
         Set(selectedGoalIDs.compactMap { FitnessGoal(rawValue: $0) })
+    }
+
+    var trainingType: TrainingType? {
+        TrainingType(rawValue: trainingTypeID)
+    }
+
+    var strengthSplit: StrengthSplit? {
+        StrengthSplit(rawValue: strengthSplitID)
     }
 }

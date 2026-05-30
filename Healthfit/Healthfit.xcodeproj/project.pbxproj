@@ -280,6 +280,11 @@
 				TargetAttributes = {
 					398868092FAA395100609127 = {
 						CreatedOnToolsVersion = 16.4;
+						SystemCapabilities = {
+							com.apple.Sign_In_with_Apple = {
+								enabled = 1;
+							};
+						};
 					};
 					398868172FAA395300609127 = {
 						CreatedOnToolsVersion = 16.4;

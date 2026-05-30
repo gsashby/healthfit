@@ -7,8 +7,11 @@ import SwiftUI
 
 struct PlanGeneratedView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var fmService: FoundationModelService
 
     @State private var showSwapSheet = false
+    @State private var isRegenerating = false
+    @State private var regenerateError: String?
 
     private var plan: WeekPlan { appState.currentPlan }
 
@@ -161,18 +164,81 @@ struct PlanGeneratedView: View {
     }
 
     private var actions: some View {
-        HStack(spacing: 8) {
-            if appState.planLocked {
-                PrimaryButton(title: "Plan locked ✓", tint: Theme.green, action: {})
-                    .disabled(true)
-            } else {
-                PrimaryButton(title: "Lock in plan", tint: Theme.blue) {
-                    appState.lockPlan()
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                if appState.planLocked {
+                    PrimaryButton(title: "Plan locked ✓", tint: Theme.green, action: {})
+                        .disabled(true)
+                } else {
+                    PrimaryButton(title: "Lock in plan", tint: Theme.blue) {
+                        appState.lockPlan()
+                    }
+                }
+                SecondaryButton(title: "Swap a day") {
+                    showSwapSheet = true
                 }
             }
-            SecondaryButton(title: "Swap a day") {
-                showSwapSheet = true
+
+            if !appState.planLocked {
+                Button {
+                    refreshPlan()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isRegenerating {
+                            ProgressView().scaleEffect(0.75).tint(Theme.blue)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text(isRegenerating ? "Regenerating…" : "Refresh plan")
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Theme.blue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .disabled(isRegenerating)
+
+                if let err = regenerateError {
+                    Text(err)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
+        }
+    }
+
+    private func refreshPlan() {
+        guard !isRegenerating else { return }
+        regenerateError = nil
+
+        guard fmService.isAvailable else {
+            appState.regeneratePlan()
+            return
+        }
+
+        isRegenerating = true
+        Task {
+            do {
+                let description = appState.lastPlanDescription.isEmpty
+                    ? appState.user.description
+                    : appState.lastPlanDescription
+                let generated = try await fmService.generateWeekPlan(
+                    userDescription: description,
+                    profile: appState.user,
+                    goals: appState.selectedGoals,
+                    trainingType: appState.trainingType,
+                    strengthSplit: appState.strengthSplit,
+                    readinessState: appState.readinessState
+                )
+                appState.applyGeneratedPlan(generated)
+            } catch {
+                regenerateError = "Couldn't regenerate — using your existing plan."
+                appState.regeneratePlan()
+            }
+            isRegenerating = false
         }
     }
 }
@@ -338,5 +404,6 @@ struct SwapDaySheet: View {
 #Preview {
     NavigationStack { PlanGeneratedView() }
         .environmentObject(AppState())
+        .environmentObject(FoundationModelService())
         .preferredColorScheme(.dark)
 }

@@ -181,6 +181,7 @@ struct PlanInputView: View {
             appState.regeneratePlan()
             return
         }
+        appState.saveLastPlanDescription(description)
         isGenerating = true
         Task {
             do {
@@ -193,6 +194,8 @@ struct PlanInputView: View {
                     userDescription: description,
                     profile: appState.user,
                     goals: appState.selectedGoals,
+                    trainingType: appState.trainingType,
+                    strengthSplit: appState.strengthSplit,
                     readinessState: appState.readinessState
                 )
                 appState.applyGeneratedPlan(generated)

@@ -28,12 +28,14 @@ final class AuthService: NSObject, ObservableObject {
         restoreSession()
     }
 
-    func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
+    @discardableResult
+    func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) -> Bool {
         guard case .success(let auth) = result,
-              let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return }
+              let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return false }
         keychainSave("userID", value: cred.user)
         keychainSave("method", value: "apple")
         isAuthenticated = true
+        return true
     }
 
     func signUp(email: String, password: String) throws {
@@ -125,6 +127,23 @@ final class AppState: ObservableObject {
 
     @Published var selectedGoals: Set<FitnessGoal> = []
 
+    // MARK: Training preferences (set during onboarding)
+
+    @Published var trainingType: TrainingType? = nil
+    @Published var daysPerWeek: Int = 4
+    @Published var prioritizedDiscipline: String? = nil
+    @Published var strengthSplit: StrengthSplit? = nil
+
+    // MARK: Last plan description — used to re-generate without re-entering text
+
+    @Published var lastPlanDescription: String =
+        UserDefaults.standard.string(forKey: "lastPlanDescription") ?? ""
+
+    func saveLastPlanDescription(_ text: String) {
+        lastPlanDescription = text
+        UserDefaults.standard.set(text, forKey: "lastPlanDescription")
+    }
+
     // MARK: User & plan
 
     @Published var user: UserProfile = UserProfile(
@@ -172,6 +191,10 @@ final class AppState: ObservableObject {
         guard let profile = try? ctx.fetch(descriptor).first else { return }
         user = profile.asUserProfile
         selectedGoals = profile.selectedGoals
+        trainingType = profile.trainingType
+        daysPerWeek = profile.daysPerWeek
+        prioritizedDiscipline = profile.prioritizedDiscipline.isEmpty ? nil : profile.prioritizedDiscipline
+        strengthSplit = profile.strengthSplit
     }
 
     func saveUserProfile(_ profile: UserProfile) {
@@ -203,6 +226,10 @@ final class AppState: ObservableObject {
         record.selectedGoalIDs = selectedGoals.map(\.rawValue)
         record.hasOnboarded = hasOnboarded
         record.watchConnected = watchConnected
+        record.trainingTypeID = trainingType?.rawValue ?? ""
+        record.daysPerWeek = daysPerWeek
+        record.prioritizedDiscipline = prioritizedDiscipline ?? ""
+        record.strengthSplitID = strengthSplit?.rawValue ?? ""
         try? ctx.save()
     }
 
@@ -227,6 +254,12 @@ final class AppState: ObservableObject {
         hasOnboarded = false
         watchConnected = false
         selectedGoals = []
+        trainingType = nil
+        daysPerWeek = 4
+        prioritizedDiscipline = nil
+        strengthSplit = nil
+        lastPlanDescription = ""
+        UserDefaults.standard.removeObject(forKey: "lastPlanDescription")
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",
                            weightLb: 0, goalWeightLb: 0, description: "")
         planLocked = false
@@ -247,9 +280,9 @@ final class AppState: ObservableObject {
         persistToStore()
     }
 
-    /// Falls back to the mock hybrid week (used when FM is unavailable).
+    /// Falls back to a split-appropriate mock plan (used when FM is unavailable).
     func regeneratePlan() {
-        currentPlan = MockData.hybridWeek
+        currentPlan = MockData.plan(trainingType: trainingType, strengthSplit: strengthSplit)
         planMode = .generated
     }
 
@@ -368,12 +401,8 @@ final class AppState: ObservableObject {
         switch readiness {
         case .green:
             switch session.kind {
-            case .lift where n.contains("lower"):
-                return ["Back squat 4×6", "RDL 3×8", "Walking lunge 3×10", "Calf raise 3×12"]
-            case .lift where n.contains("upper"):
-                return ["Bench press 4×6", "Bent row 3×8", "OHP 3×8", "Pull-ups 3×AMRAP"]
             case .lift:
-                return ["Squat 3×6", "Bench 3×8", "Row 3×8", "Accessory work"]
+                return liftChips(sessionName: n)
             case .run where n.contains("tempo"):
                 return ["10 min warm-up", "4×5 min tempo", "2 min recovery walk", "Cool-down"]
             case .run:
@@ -386,7 +415,11 @@ final class AppState: ObservableObject {
         case .yellow:
             switch session.kind {
             case .lift:
-                return ["\(session.name) (−20% load)", "Shorter rest periods", "Skip accessories"]
+                let reduced = liftChips(sessionName: n)
+                    .compactMap { $0.contains("×") ? $0 + " (−20% load)" : nil }
+                return reduced.isEmpty
+                    ? ["\(session.name) at reduced load", "Stop 4–5 RIR", "Skip accessories"]
+                    : reduced
             case .run:
                 return ["Easy Zone 2 only", "Cap effort at 7/10", "Shorten if needed"]
             case .yoga:
@@ -396,6 +429,83 @@ final class AppState: ObservableObject {
             }
         case .red:
             return ["20 min easy walk", "~110 bpm cap", "10 min mobility"]
+        }
+    }
+
+    /// Returns exercise chips in "Name sets×reps" format so WorkoutSessionView
+    /// can parse them into trackable exercise cards. Respects the user's chosen split.
+    private func liftChips(sessionName n: String) -> [String] {
+        switch strengthSplit {
+
+        case .fullBody:
+            return [
+                "Back squat 3×8",
+                "Bench press 3×8",
+                "Bent row 3×8",
+                "RDL 3×10",
+                "OHP 3×10",
+            ]
+
+        case .ppl:
+            let isPush = n.contains("push") || n.contains("bench") || n.contains("press") || n.contains("ohp")
+            let isPull = n.contains("pull") || n.contains("row") || n.contains("curl") || n.contains("back")
+            if isPush {
+                return [
+                    "Bench press 4×6",
+                    "OHP 3×8",
+                    "Dumbbell lateral raise 3×12",
+                    "Tricep pushdown 3×12",
+                ]
+            } else if isPull {
+                return [
+                    "Pull-ups 3×AMRAP",
+                    "Bent row 4×6",
+                    "Lat pulldown 3×10",
+                    "Barbell curl 3×12",
+                ]
+            } else {
+                // Lower day (default for "squat", "rdl", "leg", or unrecognised PPL day)
+                return [
+                    "Back squat 4×6",
+                    "RDL 3×8",
+                    "Walking lunge 3×10",
+                    "Leg press 3×12",
+                    "Calf raise 3×15",
+                ]
+            }
+
+        case .upperLower:
+            let isUpper = n.contains("upper") || n.contains("press") || n.contains("bench") ||
+                          n.contains("row")   || n.contains("pull")
+            if isUpper {
+                return [
+                    "Bench press 4×6",
+                    "Bent row 3×8",
+                    "OHP 3×8",
+                    "Pull-ups 3×AMRAP",
+                ]
+            } else {
+                return [
+                    "Back squat 4×6",
+                    "RDL 3×8",
+                    "Walking lunge 3×10",
+                    "Calf raise 3×12",
+                ]
+            }
+
+        case nil:
+            // No split set — fall back to name-based heuristic
+            if n.contains("lower") || n.contains("leg") || n.contains("squat") || n.contains("rdl") {
+                return ["Back squat 4×6", "RDL 3×8", "Walking lunge 3×10", "Calf raise 3×12"]
+            } else if n.contains("upper") {
+                return ["Bench press 4×6", "Bent row 3×8", "OHP 3×8", "Pull-ups 3×AMRAP"]
+            } else if n.contains("push") {
+                return ["Bench press 4×6", "OHP 3×8", "Lateral raise 3×12", "Tricep pushdown 3×12"]
+            } else if n.contains("pull") {
+                return ["Pull-ups 3×AMRAP", "Bent row 4×6", "Lat pulldown 3×10", "Barbell curl 3×12"]
+            } else {
+                return ["Back squat 3×8", "Bench press 3×8", "Bent row 3×8", "OHP 3×8"]
+            }
         }
     }
 

@@ -41,6 +41,10 @@ struct OnboardingFlow: View {
 
     private func finish() {
         appState.saveSelectedGoals()
+        // Immediately swap the default mock plan for one that matches the user's
+        // chosen split, so Today and Plan tabs are correct before they generate a
+        // real AI plan.
+        appState.regeneratePlan()
         appState.completeOnboarding()
     }
 }
@@ -70,8 +74,7 @@ struct SignUpView: View {
                     SignInWithAppleButton(.signUp,
                         onRequest: { $0.requestedScopes = [.fullName, .email] },
                         onCompletion: {
-                            authService.handleAppleSignIn($0)
-                            if authService.isAuthenticated { next() }
+                            if authService.handleAppleSignIn($0) { next() }
                         })
                         .signInWithAppleButtonStyle(.white)
                         .frame(height: 52)

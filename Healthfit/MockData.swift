@@ -129,6 +129,140 @@ enum MockData {
         approach: "Two lifts before runs (fresh CNS), one quality run mid-week with a recovery day in front of it, long easy run on Sunday so Monday's lift starts the week strong. Yoga is short and matched to what you did that day."
     )
 
+    // MARK: - Plan factory (mock fallback when Apple Intelligence is unavailable)
+
+    /// Returns a split-appropriate mock plan. Used by AppState.regeneratePlan().
+    static func plan(trainingType: TrainingType?, strengthSplit: StrengthSplit?) -> WeekPlan {
+        guard let split = strengthSplit, trainingType?.includesStrength == true else {
+            return hybridWeek   // aerobic-only or unset: fall back to the default hybrid week
+        }
+        switch split {
+        case .fullBody:   return fullBodyWeek(includesRun: trainingType?.includesRun ?? false)
+        case .ppl:        return pplWeek(includesRun: trainingType?.includesRun ?? false)
+        case .upperLower: return upperLowerWeek(includesRun: trainingType?.includesRun ?? false)
+        }
+    }
+
+    // MARK: Full-body split
+
+    private static func fullBodyWeek(includesRun: Bool) -> WeekPlan {
+        WeekPlan(
+            weekIndex: 1, totalWeeks: 12, phase: "Base",
+            days: [
+                PlanDay(weekday: "Mon", dayNumber: 27, tag: "Full body strength", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Full body — squat, press, row, hinge", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Tue", dayNumber: 28,
+                        tag: includesRun ? "Easy aerobic" : "Active recovery", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Easy Z2 run", durationMin: 40)]
+                            : [PlanSession(kind: .rest, name: "Easy walk + mobility", durationMin: 30)]),
+                PlanDay(weekday: "Wed", dayNumber: 29, tag: "Today · Full body strength", isToday: true, sessions: [
+                    PlanSession(kind: .lift, name: "Full body — squat, press, row, hinge", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Thu", dayNumber: 30, tag: "Active recovery", isToday: false, sessions: [
+                    PlanSession(kind: .rest, name: "Easy walk + mobility", durationMin: 30)
+                ]),
+                PlanDay(weekday: "Fri", dayNumber: 1, tag: "Full body strength", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Full body — squat, press, row, hinge", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Sat", dayNumber: 2,
+                        tag: includesRun ? "Quality run" : "Active recovery", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Tempo intervals", durationMin: 40)]
+                            : [PlanSession(kind: .rest, name: "Easy walk", durationMin: 30)]),
+                PlanDay(weekday: "Sun", dayNumber: 3, tag: "Rest", isToday: false, sessions: [
+                    PlanSession(kind: .rest, name: "Full rest", durationMin: 0)
+                ])
+            ],
+            summary: "Three full-body strength sessions with active recovery between each. " +
+                     (includesRun ? "Two aerobic sessions fill the gaps." : ""),
+            approach: "Full-body lifting three times per week maximises muscle protein synthesis frequency. " +
+                      "Rest days prevent cumulative fatigue from back-to-back sessions."
+        )
+    }
+
+    // MARK: Push / Pull / Lower (PPL) split
+
+    private static func pplWeek(includesRun: Bool) -> WeekPlan {
+        WeekPlan(
+            weekIndex: 1, totalWeeks: 12, phase: "Base",
+            days: [
+                PlanDay(weekday: "Mon", dayNumber: 27, tag: "Push — chest, shoulders, triceps", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Push — bench press, OHP, triceps", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Tue", dayNumber: 28, tag: "Pull — back, biceps", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Pull — bent row, pull-ups, curls", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Wed", dayNumber: 29, tag: "Today · Lower — legs, glutes", isToday: true, sessions: [
+                    PlanSession(kind: .lift, name: "Lower — squat, RDL, lunges", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Thu", dayNumber: 30,
+                        tag: includesRun ? "Easy aerobic" : "Active recovery", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Easy Z2 run", durationMin: 40)]
+                            : [PlanSession(kind: .rest, name: "Easy walk + mobility", durationMin: 30)]),
+                PlanDay(weekday: "Fri", dayNumber: 1, tag: "Push — chest, shoulders, triceps", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Push — bench press, OHP, triceps", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Sat", dayNumber: 2,
+                        tag: includesRun ? "Quality run" : "Pull — back, biceps", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Tempo or long easy run", durationMin: 45)]
+                            : [PlanSession(kind: .lift, name: "Pull — bent row, pull-ups, curls", durationMin: 45)]),
+                PlanDay(weekday: "Sun", dayNumber: 3, tag: "Rest", isToday: false, sessions: [
+                    PlanSession(kind: .rest, name: "Full rest", durationMin: 0)
+                ])
+            ],
+            summary: "PPL cycle across Mon–Wed, repeated Friday onwards. " +
+                     (includesRun ? "Aerobic sessions slot in on recovery days." : "Each muscle group is hit twice per week."),
+            approach: "Push/Pull/Lower spreads volume across the week and keeps complementary muscles " +
+                      "fresh. Each pattern is hit twice in a 6-day cycle for maximum frequency."
+        )
+    }
+
+    // MARK: Upper / Lower split
+
+    private static func upperLowerWeek(includesRun: Bool) -> WeekPlan {
+        WeekPlan(
+            weekIndex: 1, totalWeeks: 12, phase: "Base",
+            days: [
+                PlanDay(weekday: "Mon", dayNumber: 27, tag: "Strength · Upper", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Upper — bench, row, OHP, pull-ups", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Tue", dayNumber: 28,
+                        tag: includesRun ? "Easy aerobic" : "Strength · Lower", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Easy Z2 run", durationMin: 40)]
+                            : [PlanSession(kind: .lift, name: "Lower — squat, RDL, lunges, calf raises", durationMin: 45)]),
+                PlanDay(weekday: "Wed", dayNumber: 29, tag: "Today · Strength · Lower", isToday: true, sessions: [
+                    PlanSession(kind: .lift, name: "Lower — squat, RDL, lunges, calf raises", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Thu", dayNumber: 30, tag: "Active recovery", isToday: false, sessions: [
+                    PlanSession(kind: .rest, name: "Easy walk + mobility", durationMin: 30)
+                ]),
+                PlanDay(weekday: "Fri", dayNumber: 1, tag: "Strength · Upper", isToday: false, sessions: [
+                    PlanSession(kind: .lift, name: "Upper — bench, row, OHP, pull-ups", durationMin: 45)
+                ]),
+                PlanDay(weekday: "Sat", dayNumber: 2,
+                        tag: includesRun ? "Quality run" : "Strength · Lower", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Tempo intervals", durationMin: 45)]
+                            : [PlanSession(kind: .lift, name: "Lower — squat, RDL, lunges, calf raises", durationMin: 45)]),
+                PlanDay(weekday: "Sun", dayNumber: 3,
+                        tag: includesRun ? "Long easy run" : "Rest", isToday: false,
+                        sessions: includesRun
+                            ? [PlanSession(kind: .run, name: "Long easy run", durationMin: 50)]
+                            : [PlanSession(kind: .rest, name: "Full rest", durationMin: 0)])
+            ],
+            summary: "Upper and lower sessions alternate so each half of the body gets dedicated volume " +
+                     "and a full 48 hours to recover before its next session." +
+                     (includesRun ? " Running fills the gaps between lift days." : ""),
+            approach: "Upper/lower split hits each muscle group twice per week with enough recovery in between. " +
+                      "Heavier compound movements anchor each session."
+        )
+    }
+
     static let parsedInput: [ParsedInput] = [
         ParsedInput(key: "Profile",        value: "50 · Male"),
         ParsedInput(key: "Goals",          value: "Lose 20 lb · Retain muscle · Build slightly"),
