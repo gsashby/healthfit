@@ -10,6 +10,7 @@ struct FoodView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var readinessService: ReadinessService
     @State private var showingPhotoLog = false
+    @State private var entryToEdit: FoodEntry? = nil
 
     // Mirror TodayView's readiness resolution so targets stay in sync.
     private var activeReadiness: ReadinessState {
@@ -17,18 +18,24 @@ struct FoodView: View {
         return readinessService.latestData?.state ?? appState.readinessState
     }
 
-    // Targets come from the plan + readiness; eaten values are mock until 4.2.
+    // Targets from plan/readiness; eaten values computed from the real food log.
     private var nutrition: DayNutrition {
         let adj = appState.adjustedTodayWorkout(readiness: activeReadiness)
-        let mock = MockData.dayNutrition
+        let logged = appState.todayFoodLog
+        let kcalEaten = logged.reduce(0) { $0 + $1.kcal }
+        let macroEaten = Macros(
+            carbsG:   logged.reduce(0) { $0 + $1.macros.carbsG },
+            proteinG: logged.reduce(0) { $0 + $1.macros.proteinG },
+            fatG:     logged.reduce(0) { $0 + $1.macros.fatG }
+        )
         return DayNutrition(
             kcalTarget: adj.kcalTarget,
-            kcalEaten: mock.kcalEaten,
+            kcalEaten: kcalEaten,
             macroTarget: adj.macros,
-            macroEaten: mock.macroEaten,
-            allergyAlerts: mock.allergyAlerts,
+            macroEaten: macroEaten,
+            allergyAlerts: [],
             dayContext: adj.macroTag,
-            entries: mock.entries
+            entries: logged
         )
     }
 
@@ -132,6 +139,10 @@ struct FoodView: View {
             PhotoLogSheet()
                 .presentationDetents([.medium, .large])
         }
+        .sheet(item: $entryToEdit) { entry in
+            EditEntrySheet(entry: entry)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     private var todayEyebrow: String {
@@ -226,12 +237,46 @@ struct FoodView: View {
 
     private var mealsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Today's meals").eyebrow()
-                .padding(.bottom, 2)
+            Text("Today's meals").eyebrow().padding(.bottom, 2)
 
-            ForEach(nutrition.entries) { entry in
-                MealRow(entry: entry,
-                        userAllergens: Set(appState.dietaryProfile.allergies))
+            if appState.todayFoodLog.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundColor(Theme.textMuted)
+                    Text("Nothing logged yet")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.textMuted)
+                    Text("Tap \"Log food\" to add your first meal.")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.textMuted.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .background(Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                ForEach(appState.todayFoodLog) { entry in
+                    MealRow(entry: entry,
+                            userAllergens: Set(appState.dietaryProfile.allergies))
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                entryToEdit = entry
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(Theme.blue)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    appState.removeFoodEntry(id: entry.id)
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                }
             }
         }
     }
@@ -390,34 +435,46 @@ private struct MealRow: View {
     }
 }
 
-// MARK: - Photo-log sheet (mock)
+// MARK: - Photo-log sheet
 
 private struct PhotoLogSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
-    @State private var phase: Phase = .scanning
 
-    enum Phase { case scanning, suggestions }
+    enum Phase { case scanning, suggestions, manual }
+    @State private var phase: Phase = .scanning
+    @State private var mealType: String = {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h {
+        case 5..<10: return "Breakfast"
+        case 10..<15: return "Lunch"
+        case 15..<21: return "Dinner"
+        default:      return "Snack"
+        }
+    }()
+
+    private let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
-
             VStack(spacing: 16) {
                 Capsule()
                     .fill(Theme.textMuted.opacity(0.4))
                     .frame(width: 36, height: 4)
                     .padding(.top, 8)
 
-                if phase == .scanning {
-                    scanningPhase
-                } else {
-                    suggestionsPhase
+                switch phase {
+                case .scanning:    scanningPhase
+                case .suggestions: suggestionsPhase
+                case .manual:      manualPhase
                 }
             }
             .padding(.horizontal, 22)
         }
     }
+
+    // MARK: Scanning
 
     private var scanningPhase: some View {
         VStack(spacing: 14) {
@@ -443,21 +500,27 @@ private struct PhotoLogSheet: View {
         }
     }
 
+    // MARK: Suggestions
+
     private var suggestionsPhase: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Is this it?").eyebrow()
-                .padding(.top, 6)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Is this it?").eyebrow().padding(.top, 6)
             Text("Pick the closest match — I'll log macros and flag allergens.")
                 .font(.system(size: 14))
                 .foregroundColor(Theme.textMuted)
-                .padding(.bottom, 6)
+
+            Picker("Meal", selection: $mealType) {
+                ForEach(mealTypes, id: \.self) { Text($0).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.bottom, 4)
 
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(Array(MockData.foodPickerSuggestions.enumerated()), id: \.offset) { _, item in
                         let userAllergens = Set(appState.dietaryProfile.allergies)
                         let hasMatch = item.allergens.contains { userAllergens.contains($0) }
-                        Button { dismiss() } label: {
+                        Button { logSuggestion(item) } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.name)
@@ -480,11 +543,8 @@ private struct PhotoLogSheet: View {
                                                 let isMatch = userAllergens.contains(a)
                                                 Text(a)
                                                     .font(.system(size: 10, weight: .medium))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(isMatch
-                                                        ? Theme.red.opacity(0.18)
-                                                        : Theme.yellow.opacity(0.18))
+                                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                                    .background(isMatch ? Theme.red.opacity(0.18) : Theme.yellow.opacity(0.18))
                                                     .foregroundColor(isMatch ? Theme.red : Theme.yellow)
                                                     .clipShape(Capsule())
                                             }
@@ -493,8 +553,9 @@ private struct PhotoLogSheet: View {
                                     }
                                 }
                                 Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(Theme.textMuted)
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(Theme.green)
+                                    .font(.system(size: 20))
                             }
                             .padding(14)
                             .background(hasMatch ? Theme.red.opacity(0.06) : Theme.card)
@@ -511,9 +572,176 @@ private struct PhotoLogSheet: View {
 
             Spacer()
 
-            SecondaryButton(title: "None of these — type it") { dismiss() }
-                .padding(.bottom, 8)
+            SecondaryButton(title: "None of these — type it") {
+                withAnimation { phase = .manual }
+            }
+            .padding(.bottom, 8)
         }
+    }
+
+    private func logSuggestion(_ item: (name: String, kcal: Int, allergens: [String])) {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mm a"
+        appState.logFood(FoodEntry(
+            mealType: mealType,
+            name: item.name,
+            kcal: item.kcal,
+            macros: Macros(carbsG: 0, proteinG: 0, fatG: 0),
+            allergens: item.allergens,
+            time: fmt.string(from: Date())
+        ))
+        dismiss()
+    }
+
+    // MARK: Manual entry
+
+    private var manualPhase: some View {
+        FoodEntryForm(defaultMealType: mealType, onDone: { dismiss() })
+    }
+}
+
+// MARK: - Edit entry sheet (presented from FoodView)
+
+private struct EditEntrySheet: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    let entry: FoodEntry
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.bg.ignoresSafeArea()
+                FoodEntryForm(existingEntry: entry, defaultMealType: entry.mealType,
+                              onDone: { dismiss() })
+                    .padding(.horizontal, 22)
+            }
+            .navigationTitle("Edit meal")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.foregroundColor(Theme.textMuted)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Shared entry form (add and edit)
+
+private struct FoodEntryForm: View {
+    @EnvironmentObject var appState: AppState
+
+    let existingEntry: FoodEntry?
+    let defaultMealType: String
+    let onDone: () -> Void
+
+    @State private var name: String
+    @State private var kcalStr: String
+    @State private var carbsStr: String
+    @State private var proteinStr: String
+    @State private var fatStr: String
+    @State private var mealType: String
+
+    private let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
+    private var isEditing: Bool { existingEntry != nil }
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && Int(kcalStr) != nil
+    }
+
+    init(existingEntry: FoodEntry? = nil, defaultMealType: String, onDone: @escaping () -> Void) {
+        self.existingEntry = existingEntry
+        self.defaultMealType = defaultMealType
+        self.onDone = onDone
+        if let e = existingEntry {
+            _name       = State(initialValue: e.name)
+            _kcalStr    = State(initialValue: "\(e.kcal)")
+            _carbsStr   = State(initialValue: e.macros.carbsG   > 0 ? "\(e.macros.carbsG)"   : "")
+            _proteinStr = State(initialValue: e.macros.proteinG > 0 ? "\(e.macros.proteinG)" : "")
+            _fatStr     = State(initialValue: e.macros.fatG     > 0 ? "\(e.macros.fatG)"     : "")
+            _mealType   = State(initialValue: e.mealType)
+        } else {
+            _name = State(initialValue: ""); _kcalStr = State(initialValue: "")
+            _carbsStr = State(initialValue: ""); _proteinStr = State(initialValue: "")
+            _fatStr = State(initialValue: ""); _mealType = State(initialValue: defaultMealType)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !isEditing {
+                Text("Log manually").eyebrow().padding(.top, 6)
+            }
+            Text("Calories are required — macros are optional.")
+                .font(.system(size: 14)).foregroundColor(Theme.textMuted)
+
+            Picker("Meal", selection: $mealType) {
+                ForEach(mealTypes, id: \.self) { Text($0).tag($0) }
+            }
+            .pickerStyle(.segmented)
+
+            entryField("Food name", placeholder: "e.g. Chicken rice bowl", text: $name)
+            entryField("Calories", placeholder: "e.g. 450", text: $kcalStr, isNumeric: true)
+            HStack(spacing: 8) {
+                entryField("Carbs (g)",   placeholder: "0", text: $carbsStr,   isNumeric: true)
+                entryField("Protein (g)", placeholder: "0", text: $proteinStr, isNumeric: true)
+                entryField("Fat (g)",     placeholder: "0", text: $fatStr,     isNumeric: true)
+            }
+
+            Spacer()
+
+            PrimaryButton(
+                title: canSave
+                    ? (isEditing ? "Save changes" : "Log it")
+                    : "Enter a name and calories",
+                tint: canSave ? Theme.green : Theme.card2
+            ) {
+                guard canSave else { return }
+                save()
+            }
+            .disabled(!canSave)
+            .padding(.bottom, 8)
+        }
+    }
+
+    private func entryField(_ label: String, placeholder: String,
+                             text: Binding<String>, isNumeric: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Theme.textMuted)
+                .textCase(.uppercase).tracking(0.5)
+            TextField(placeholder, text: text)
+                .font(.system(size: 15)).foregroundColor(Theme.text)
+                .padding(12).background(Theme.card2)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                #if canImport(UIKit)
+                .keyboardType(isNumeric ? .numberPad : .default)
+                #endif
+        }
+    }
+
+    private func save() {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mm a"
+        let entry = FoodEntry(
+            id:        existingEntry?.id ?? UUID(),
+            mealType:  mealType,
+            name:      name.trimmingCharacters(in: .whitespaces),
+            kcal:      Int(kcalStr) ?? 0,
+            macros:    Macros(carbsG:   Int(carbsStr) ?? 0,
+                              proteinG: Int(proteinStr) ?? 0,
+                              fatG:     Int(fatStr) ?? 0),
+            allergens: existingEntry?.allergens ?? [],
+            time:      existingEntry?.time ?? fmt.string(from: Date())
+        )
+        if isEditing {
+            appState.updateFoodEntry(entry)
+        } else {
+            appState.logFood(entry)
+        }
+        onDone()
     }
 }
 

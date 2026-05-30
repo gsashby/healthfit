@@ -137,6 +137,44 @@ final class AppState: ObservableObject {
 
     func saveDietaryProfile() { persistToStore() }
 
+    // MARK: Food log — today's entries, keyed by calendar date in UserDefaults
+
+    @Published var todayFoodLog: [FoodEntry] = []
+
+    private var foodLogKey: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        return "foodLog_\(fmt.string(from: Date()))"
+    }
+
+    func logFood(_ entry: FoodEntry) {
+        todayFoodLog.append(entry)
+        saveFoodLog()
+    }
+
+    func removeFoodEntry(id: UUID) {
+        todayFoodLog.removeAll { $0.id == id }
+        saveFoodLog()
+    }
+
+    func updateFoodEntry(_ updated: FoodEntry) {
+        guard let idx = todayFoodLog.firstIndex(where: { $0.id == updated.id }) else { return }
+        todayFoodLog[idx] = updated
+        saveFoodLog()
+    }
+
+    func loadFoodLog() {
+        guard let data = UserDefaults.standard.data(forKey: foodLogKey),
+              let entries = try? JSONDecoder().decode([FoodEntry].self, from: data)
+        else { return }
+        todayFoodLog = entries
+    }
+
+    private func saveFoodLog() {
+        guard let data = try? JSONEncoder().encode(todayFoodLog) else { return }
+        UserDefaults.standard.set(data, forKey: foodLogKey)
+    }
+
     // MARK: Last plan description — used to re-generate without re-entering text
 
     @Published var lastPlanDescription: String =
@@ -185,6 +223,7 @@ final class AppState: ObservableObject {
 
     func configure(with context: ModelContext) {
         modelContext = context
+        loadFoodLog()
         loadFromStore()
     }
 
@@ -266,6 +305,8 @@ final class AppState: ObservableObject {
         prioritizedDiscipline = nil
         strengthSplit = nil
         dietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
+        todayFoodLog = []
+        UserDefaults.standard.removeObject(forKey: foodLogKey)
         lastPlanDescription = ""
         UserDefaults.standard.removeObject(forKey: "lastPlanDescription")
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",

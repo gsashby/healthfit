@@ -229,7 +229,7 @@ struct ReadinessSnapshot {
     let macroTag: String
 }
 
-struct Macros {
+struct Macros: Codable {
     let carbsG: Int
     let proteinG: Int
     let fatG: Int
@@ -293,14 +293,25 @@ struct ParsedInput: Identifiable {
 
 // MARK: - Food / Nutrition
 
-struct FoodEntry: Identifiable {
-    let id = UUID()
+struct FoodEntry: Identifiable, Codable {
+    let id: UUID
     let mealType: String      // "Breakfast"
     let name: String
     let kcal: Int
     let macros: Macros
     let allergens: [String]
     let time: String
+
+    init(id: UUID = UUID(), mealType: String, name: String, kcal: Int,
+         macros: Macros, allergens: [String], time: String) {
+        self.id = id
+        self.mealType = mealType
+        self.name = name
+        self.kcal = kcal
+        self.macros = macros
+        self.allergens = allergens
+        self.time = time
+    }
 }
 
 struct DayNutrition {
