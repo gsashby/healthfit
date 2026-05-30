@@ -90,7 +90,7 @@ struct FoodSearchView: View {
         } else if query.trimmingCharacters(in: .whitespaces).isEmpty {
             emptyState(icon: "magnifyingglass", message: "Type a food name to search")
         } else if db.results.isEmpty {
-            emptyState(icon: "questionmark.circle", message: "No results for "\(query)"")
+            emptyState(icon: "questionmark.circle", message: "No results for \"\(query)\"")
         } else {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 8) {
