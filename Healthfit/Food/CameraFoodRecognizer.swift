@@ -5,7 +5,7 @@
 //
 
 import SwiftUI
-import Vision
+@preconcurrency import Vision
 
 // MARK: - Camera / library picker
 
