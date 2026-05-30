@@ -338,6 +338,9 @@ final class PersistedProfile {
     var daysPerWeek: Int = 4
     var prioritizedDiscipline: String = ""
     var strengthSplitID: String = ""
+    var dietaryAllergies: [String] = []
+    var dietaryPreferences: [String] = []
+    var dietaryDislikes: [String] = []
 
     init() {}
 
@@ -357,5 +360,11 @@ final class PersistedProfile {
 
     var strengthSplit: StrengthSplit? {
         StrengthSplit(rawValue: strengthSplitID)
+    }
+
+    var dietaryProfile: DietaryProfile {
+        DietaryProfile(allergies: dietaryAllergies,
+                       preferences: dietaryPreferences,
+                       dislikes: dietaryDislikes)
     }
 }

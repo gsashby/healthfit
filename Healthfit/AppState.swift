@@ -133,6 +133,9 @@ final class AppState: ObservableObject {
     @Published var daysPerWeek: Int = 4
     @Published var prioritizedDiscipline: String? = nil
     @Published var strengthSplit: StrengthSplit? = nil
+    @Published var dietaryProfile: DietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
+
+    func saveDietaryProfile() { persistToStore() }
 
     // MARK: Last plan description — used to re-generate without re-entering text
 
@@ -195,6 +198,7 @@ final class AppState: ObservableObject {
         daysPerWeek = profile.daysPerWeek
         prioritizedDiscipline = profile.prioritizedDiscipline.isEmpty ? nil : profile.prioritizedDiscipline
         strengthSplit = profile.strengthSplit
+        dietaryProfile = profile.dietaryProfile
     }
 
     func saveUserProfile(_ profile: UserProfile) {
@@ -230,6 +234,9 @@ final class AppState: ObservableObject {
         record.daysPerWeek = daysPerWeek
         record.prioritizedDiscipline = prioritizedDiscipline ?? ""
         record.strengthSplitID = strengthSplit?.rawValue ?? ""
+        record.dietaryAllergies = dietaryProfile.allergies
+        record.dietaryPreferences = dietaryProfile.preferences
+        record.dietaryDislikes = dietaryProfile.dislikes
         try? ctx.save()
     }
 
@@ -258,6 +265,7 @@ final class AppState: ObservableObject {
         daysPerWeek = 4
         prioritizedDiscipline = nil
         strengthSplit = nil
+        dietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
         lastPlanDescription = ""
         UserDefaults.standard.removeObject(forKey: "lastPlanDescription")
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",

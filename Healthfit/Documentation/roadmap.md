@@ -108,9 +108,12 @@ The Eat tab UI is solid but entirely static. `FoodView` reads directly from `Moc
 - Use the Vision framework or a food recognition API (Clarifai, LogMeal) to identify food in the image
 - Return real matches instead of the hardcoded `MockData.foodPickerSuggestions`
 
-### 4.4 Dietary Profile Capture
-- Add an onboarding step (or Settings section) to capture allergies, preferences (vegetarian, high-protein, etc.), and dislikes — the `DietaryProfile` model already exists
-- Use this profile to filter food suggestions and surface allergen warnings accurately
+### 4.4 Dietary Profile Capture ✅ (implemented)
+- New onboarding step 3 of 5 (`DietarySetupView`) captures allergies (Dairy, Eggs, Gluten, Tree nuts, Peanuts, Soy, Shellfish, Fish) and preferences (High-protein, Low-carb, Vegetarian, Vegan, Dairy-free, Gluten-free, Keto, Paleo) via multi-select pills; skippable
+- `SettingsView` gains a "Dietary profile" section so users can edit selections post-onboarding
+- `DietaryProfile` persisted to SwiftData via `PersistedProfile`
+- `MealRow` highlights allergen tags red and adds a ⚠ banner when a logged meal contains a user allergen; card background tints red
+- `PhotoLogSheet` food suggestions apply the same allergen highlighting so users know before they log
 
 ### 4.5 Macro Targets from Plan Context ✅ (implemented)
 - `FoodView` now derives kcal and macro targets from `appState.adjustedTodayWorkout(readiness:)`, which computes targets based on today's session type (lift/run/rest) and the current readiness state

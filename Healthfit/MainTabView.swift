@@ -228,7 +228,18 @@ struct SettingsView: View {
     @State private var weight = ""
     @State private var goalWeight = ""
     @State private var showDeleteConfirm = false
+    @State private var selectedAllergies: Set<String> = []
+    @State private var selectedPreferences: Set<String> = []
     private let sexOptions = ["Male", "Female", "Other"]
+
+    private static let allergyOptions = [
+        "Dairy", "Eggs", "Gluten", "Tree nuts",
+        "Peanuts", "Soy", "Shellfish", "Fish",
+    ]
+    private static let preferenceOptions = [
+        "High-protein", "Low-carb", "Vegetarian", "Vegan",
+        "Dairy-free", "Gluten-free", "Keto", "Paleo",
+    ]
 
     var body: some View {
         NavigationStack {
@@ -266,8 +277,46 @@ struct SettingsView: View {
                                 weightLb: Double(weight) ?? appState.user.weightLb,
                                 goalWeightLb: Double(goalWeight) ?? appState.user.goalWeightLb,
                                 description: appState.user.description))
+                            appState.dietaryProfile = DietaryProfile(
+                                allergies: Array(selectedAllergies).sorted(),
+                                preferences: Array(selectedPreferences).sorted(),
+                                dislikes: appState.dietaryProfile.dislikes)
+                            appState.saveDietaryProfile()
                             dismiss()
                         }
+
+                        sectionLabel("Dietary profile").padding(.top, 8)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Allergies").eyebrow()
+                            FlowLayout(spacing: 8) {
+                                ForEach(Self.allergyOptions, id: \.self) { option in
+                                    Pill(text: option,
+                                         selected: selectedAllergies.contains(option),
+                                         tint: Theme.red) {
+                                        if selectedAllergies.contains(option) {
+                                            selectedAllergies.remove(option)
+                                        } else {
+                                            selectedAllergies.insert(option)
+                                        }
+                                    }
+                                }
+                            }
+                            Text("Preferences").eyebrow().padding(.top, 4)
+                            FlowLayout(spacing: 8) {
+                                ForEach(Self.preferenceOptions, id: \.self) { option in
+                                    Pill(text: option,
+                                         selected: selectedPreferences.contains(option),
+                                         tint: Theme.green) {
+                                        if selectedPreferences.contains(option) {
+                                            selectedPreferences.remove(option)
+                                        } else {
+                                            selectedPreferences.insert(option)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         sectionLabel("Account").padding(.top, 8)
                         Button {
                             authService.signOut(); appState.resetOnboarding()
@@ -304,6 +353,8 @@ struct SettingsView: View {
             age = appState.user.age == 0 ? "" : "\(appState.user.age)"
             weight = appState.user.weightLb == 0 ? "" : "\(Int(appState.user.weightLb))"
             goalWeight = appState.user.goalWeightLb == 0 ? "" : "\(Int(appState.user.goalWeightLb))"
+            selectedAllergies = Set(appState.dietaryProfile.allergies)
+            selectedPreferences = Set(appState.dietaryProfile.preferences)
         }
     }
 

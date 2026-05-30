@@ -29,7 +29,7 @@ struct GoalSetupView: View {
             Theme.bg.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Step 3 of 4")
+                Text("Step 4 of 5")
                     .eyebrow()
                     .padding(.top, 16)
 

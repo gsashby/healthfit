@@ -230,7 +230,8 @@ struct FoodView: View {
                 .padding(.bottom, 2)
 
             ForEach(nutrition.entries) { entry in
-                MealRow(entry: entry)
+                MealRow(entry: entry,
+                        userAllergens: Set(appState.dietaryProfile.allergies))
             }
         }
     }
@@ -311,6 +312,11 @@ private struct MacroBar: View {
 
 private struct MealRow: View {
     let entry: FoodEntry
+    var userAllergens: Set<String> = []
+
+    private var hasUserAllergen: Bool {
+        entry.allergens.contains { userAllergens.contains($0) }
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -327,8 +333,7 @@ private struct MealRow: View {
                         .foregroundColor(Theme.textMuted)
                         .textCase(.uppercase)
                         .tracking(0.6)
-                    Text("·")
-                        .foregroundColor(Theme.textMuted)
+                    Text("·").foregroundColor(Theme.textMuted)
                     Text(entry.time)
                         .font(.system(size: 11))
                         .foregroundColor(Theme.textMuted)
@@ -340,15 +345,23 @@ private struct MealRow: View {
                     .font(.system(size: 12))
                     .foregroundColor(Theme.textMuted)
 
+                if hasUserAllergen {
+                    Label("Contains your allergens", systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Theme.red)
+                        .padding(.top, 2)
+                }
+
                 if !entry.allergens.isEmpty {
-                    HStack(spacing: 4) {
+                    FlowLayout(spacing: 4) {
                         ForEach(entry.allergens, id: \.self) { tag in
+                            let isMatch = userAllergens.contains(tag)
                             Text(tag)
                                 .font(.system(size: 10, weight: .medium))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Theme.yellow.opacity(0.18))
-                                .foregroundColor(Theme.yellow)
+                                .background(isMatch ? Theme.red.opacity(0.18) : Theme.yellow.opacity(0.18))
+                                .foregroundColor(isMatch ? Theme.red : Theme.yellow)
                                 .clipShape(Capsule())
                         }
                     }
@@ -358,8 +371,12 @@ private struct MealRow: View {
             Spacer()
         }
         .padding(14)
-        .background(Theme.card)
+        .background(hasUserAllergen ? Theme.red.opacity(0.06) : Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(hasUserAllergen ? Theme.red.opacity(0.3) : .clear, lineWidth: 1)
+        )
     }
 
     private var emoji: String {
@@ -376,6 +393,7 @@ private struct MealRow: View {
 // MARK: - Photo-log sheet (mock)
 
 private struct PhotoLogSheet: View {
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var phase: Phase = .scanning
 
@@ -437,9 +455,9 @@ private struct PhotoLogSheet: View {
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(Array(MockData.foodPickerSuggestions.enumerated()), id: \.offset) { _, item in
-                        Button {
-                            dismiss()
-                        } label: {
+                        let userAllergens = Set(appState.dietaryProfile.allergies)
+                        let hasMatch = item.allergens.contains { userAllergens.contains($0) }
+                        Button { dismiss() } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.name)
@@ -449,15 +467,25 @@ private struct PhotoLogSheet: View {
                                     Text("~\(item.kcal) kcal")
                                         .font(.system(size: 12))
                                         .foregroundColor(Theme.textMuted)
+                                    if hasMatch {
+                                        Label("Contains your allergens",
+                                              systemImage: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(Theme.red)
+                                            .padding(.top, 2)
+                                    }
                                     if !item.allergens.isEmpty {
-                                        HStack(spacing: 4) {
+                                        FlowLayout(spacing: 4) {
                                             ForEach(item.allergens, id: \.self) { a in
+                                                let isMatch = userAllergens.contains(a)
                                                 Text(a)
                                                     .font(.system(size: 10, weight: .medium))
                                                     .padding(.horizontal, 6)
                                                     .padding(.vertical, 2)
-                                                    .background(Theme.yellow.opacity(0.18))
-                                                    .foregroundColor(Theme.yellow)
+                                                    .background(isMatch
+                                                        ? Theme.red.opacity(0.18)
+                                                        : Theme.yellow.opacity(0.18))
+                                                    .foregroundColor(isMatch ? Theme.red : Theme.yellow)
                                                     .clipShape(Capsule())
                                             }
                                         }
@@ -469,8 +497,12 @@ private struct PhotoLogSheet: View {
                                     .foregroundColor(Theme.textMuted)
                             }
                             .padding(14)
-                            .background(Theme.card)
+                            .background(hasMatch ? Theme.red.opacity(0.06) : Theme.card)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(hasMatch ? Theme.red.opacity(0.3) : .clear, lineWidth: 1)
+                            )
                         }
                         .buttonStyle(.plain)
                     }
