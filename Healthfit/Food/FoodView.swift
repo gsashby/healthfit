@@ -8,9 +8,91 @@ import SwiftUI
 
 struct FoodView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var readinessService: ReadinessService
     @State private var showingPhotoLog = false
 
-    private var n: DayNutrition { MockData.dayNutrition }
+    // Mirror TodayView's readiness resolution so targets stay in sync.
+    private var activeReadiness: ReadinessState {
+        if appState.todayForcesOriginalPlan { return .green }
+        return readinessService.latestData?.state ?? appState.readinessState
+    }
+
+    // Targets come from the plan + readiness; eaten values are mock until 4.2.
+    private var nutrition: DayNutrition {
+        let adj = appState.adjustedTodayWorkout(readiness: activeReadiness)
+        let mock = MockData.dayNutrition
+        return DayNutrition(
+            kcalTarget: adj.kcalTarget,
+            kcalEaten: mock.kcalEaten,
+            macroTarget: adj.macros,
+            macroEaten: mock.macroEaten,
+            allergyAlerts: mock.allergyAlerts,
+            dayContext: adj.macroTag,
+            entries: mock.entries
+        )
+    }
+
+    // Dynamic rationale based on today's session type and readiness state.
+    private var macroRationale: (title: String, message: String) {
+        let adj = appState.adjustedTodayWorkout(readiness: activeReadiness)
+        let todayKind = appState.currentPlan.days
+            .first(where: { $0.isToday })?
+            .sessions
+            .first(where: { $0.kind == .lift || $0.kind == .run })?
+            .kind ?? .rest
+
+        switch activeReadiness {
+        case .red:
+            return (
+                "Recovery day — targets reduced.",
+                "Readiness is suppressed. Carbs drop to match the lighter load; " +
+                "protein holds at \(adj.macros.proteinG)g to protect muscle while you recover."
+            )
+        case .yellow:
+            switch todayKind {
+            case .lift:
+                return (
+                    "Lighter lift day targets.",
+                    "Today's session is dialled back ~20%. Protein is set at \(adj.macros.proteinG)g " +
+                    "to support repair, with moderate carbs to fuel the reduced intensity."
+                )
+            case .run:
+                return (
+                    "Easy run day targets.",
+                    "Readiness is mixed so the run is easier today. Carbs are moderate at " +
+                    "\(adj.macros.carbsG)g; protein stays at \(adj.macros.proteinG)g."
+                )
+            default:
+                return (
+                    "Moderate targets today.",
+                    "Targets are adjusted to match your readiness. Protein stays elevated " +
+                    "at \(adj.macros.proteinG)g to support recovery."
+                )
+            }
+        case .green:
+            switch todayKind {
+            case .lift:
+                return (
+                    "Why protein is high today.",
+                    "Lift days prioritise muscle protein synthesis — you're targeting " +
+                    "\(adj.macros.proteinG)g. Carbs are set at \(adj.macros.carbsG)g " +
+                    "to fuel the session and restore glycogen."
+                )
+            case .run:
+                return (
+                    "Why carbs are high today.",
+                    "Running depletes glycogen — \(adj.macros.carbsG)g carbs fuel your output " +
+                    "and top up stores post-run. Protein holds at \(adj.macros.proteinG)g for recovery."
+                )
+            default:
+                return (
+                    "Rest day targets.",
+                    "Carbs are lower today since glycogen isn't being depleted. Protein stays " +
+                    "at \(adj.macros.proteinG)g to keep muscle protein synthesis elevated."
+                )
+            }
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -76,7 +158,7 @@ struct FoodView: View {
             HStack {
                 Text("Today's fuel").eyebrow()
                 Spacer()
-                Text(n.dayContext)
+                Text(nutrition.dayContext)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Theme.green)
                     .textCase(.uppercase)
@@ -85,17 +167,17 @@ struct FoodView: View {
 
             // Calorie ring + remaining
             HStack(spacing: 18) {
-                CalorieRing(eaten: n.kcalEaten, target: n.kcalTarget)
+                CalorieRing(eaten: nutrition.kcalEaten, target: nutrition.kcalTarget)
                     .frame(width: 92, height: 92)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("\(n.kcalTarget - n.kcalEaten) kcal")
+                    Text("\(max(0, nutrition.kcalTarget - nutrition.kcalEaten)) kcal")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Theme.text)
                     Text("remaining today")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.textMuted)
-                    Text("Target: \(n.kcalTarget) · Eaten: \(n.kcalEaten)")
+                    Text("Target: \(nutrition.kcalTarget) · Eaten: \(nutrition.kcalEaten)")
                         .font(.system(size: 12))
                         .foregroundColor(Theme.textMuted)
                         .padding(.top, 2)
@@ -108,20 +190,20 @@ struct FoodView: View {
             VStack(spacing: 10) {
                 MacroBar(
                     label: "Carbs",
-                    eaten: n.macroEaten.carbsG,
-                    target: n.macroTarget.carbsG,
+                    eaten: nutrition.macroEaten.carbsG,
+                    target: nutrition.macroTarget.carbsG,
                     color: Theme.orange
                 )
                 MacroBar(
                     label: "Protein",
-                    eaten: n.macroEaten.proteinG,
-                    target: n.macroTarget.proteinG,
+                    eaten: nutrition.macroEaten.proteinG,
+                    target: nutrition.macroTarget.proteinG,
                     color: Theme.green
                 )
                 MacroBar(
                     label: "Fat",
-                    eaten: n.macroEaten.fatG,
-                    target: n.macroTarget.fatG,
+                    eaten: nutrition.macroEaten.fatG,
+                    target: nutrition.macroTarget.fatG,
                     color: Theme.yellow
                 )
             }
@@ -132,9 +214,10 @@ struct FoodView: View {
     }
 
     private var pickerHint: some View {
-        ReasoningCallout(
-            title: "Why your protein is high today.",
-            message: "It's a lift day — you're targeting 175g protein to support muscle preservation through the cut. Tomorrow drops to 140g (run day).",
+        let r = macroRationale
+        return ReasoningCallout(
+            title: r.title,
+            message: r.message,
             tint: Theme.green
         )
     }
@@ -146,7 +229,7 @@ struct FoodView: View {
             Text("Today's meals").eyebrow()
                 .padding(.bottom, 2)
 
-            ForEach(n.entries) { entry in
+            ForEach(nutrition.entries) { entry in
                 MealRow(entry: entry)
             }
         }
@@ -405,5 +488,6 @@ private struct PhotoLogSheet: View {
 #Preview {
     NavigationStack { FoodView() }
         .environmentObject(AppState())
+        .environmentObject(ReadinessService())
         .preferredColorScheme(.dark)
 }

@@ -112,9 +112,10 @@ The Eat tab UI is solid but entirely static. `FoodView` reads directly from `Moc
 - Add an onboarding step (or Settings section) to capture allergies, preferences (vegetarian, high-protein, etc.), and dislikes — the `DietaryProfile` model already exists
 - Use this profile to filter food suggestions and surface allergen warnings accurately
 
-### 4.5 Macro Targets from Plan Context
-- Nutrition targets (kcal, macros) should be derived from the current readiness state and session type — not hardcoded
-- Connect `FoodView` macro targets to `appState.readinessSnapshot.kcalTarget` and `.macros` (the data model already supports this; it just isn't wired up in `FoodView`)
+### 4.5 Macro Targets from Plan Context ✅ (implemented)
+- `FoodView` now derives kcal and macro targets from `appState.adjustedTodayWorkout(readiness:)`, which computes targets based on today's session type (lift/run/rest) and the current readiness state
+- The "Why" callout is dynamic — explains protein vs carb emphasis based on session type and readiness (green/yellow/red)
+- Eaten values remain mock until 4.2 (real food logging) lands
 
 ---
 
