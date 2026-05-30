@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		39B20C872FAA3F4A006180A4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 39B20C802FAA3F4A006180A4 /* README.md */; };
+		338A14D05FA6470680E01E45 /* DietarySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 715BF772BF2A44E482B62BFD /* DietarySetupView.swift */; };
 		39B20C892FAA3F4A006180A4 /* ConnectWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C772FAA3F4A006180A4 /* ConnectWatchView.swift */; };
 		39B20C8A2FAA3F4A006180A4 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C792FAA3F4A006180A4 /* OnboardingFlow.swift */; };
 		39B20C8B2FAA3F4A006180A4 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C7A2FAA3F4A006180A4 /* WelcomeView.swift */; };
@@ -63,6 +64,7 @@
 		39B20C742FAA3F4A006180A4 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		39B20C752FAA3F4A006180A4 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
 		39B20C762FAA3F4A006180A4 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		715BF772BF2A44E482B62BFD /* DietarySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietarySetupView.swift; sourceTree = "<group>"; };
 		39B20C772FAA3F4A006180A4 /* ConnectWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectWatchView.swift; sourceTree = "<group>"; };
 		39B20C782FAA3F4A006180A4 /* GoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSetupView.swift; sourceTree = "<group>"; };
 		39B20C792FAA3F4A006180A4 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 			isa = PBXGroup;
 			children = (
 				39B20C772FAA3F4A006180A4 /* ConnectWatchView.swift */,
+				715BF772BF2A44E482B62BFD /* DietarySetupView.swift */,
 				39B20C782FAA3F4A006180A4 /* GoalSetupView.swift */,
 				39B20C792FAA3F4A006180A4 /* OnboardingFlow.swift */,
 				39B20C7A2FAA3F4A006180A4 /* WelcomeView.swift */,
@@ -347,6 +350,7 @@
 			isa = PBXSourcesBuildPhase;
 			files = (
 				39B20C892FAA3F4A006180A4 /* ConnectWatchView.swift in Sources */,
+				338A14D05FA6470680E01E45 /* DietarySetupView.swift in Sources */,
 				39B20C8A2FAA3F4A006180A4 /* OnboardingFlow.swift in Sources */,
 				39B20C8B2FAA3F4A006180A4 /* WelcomeView.swift in Sources */,
 				39B20C8E2FAA3F4A006180A4 /* Theme.swift in Sources */,
