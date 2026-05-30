@@ -151,7 +151,7 @@ private struct CornerAccents: View {
             let h = geo.size.height
             let len: CGFloat = 22
             let thick: CGFloat = 3
-            let r: CGFloat = 12
+
 
             ZStack {
                 ForEach([
