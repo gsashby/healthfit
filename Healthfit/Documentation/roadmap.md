@@ -61,15 +61,15 @@ The app's core value proposition — daily readiness-driven adjustments — requ
 
 Currently "Generate my week" calls `appState.regeneratePlan()` which just reloads the same static `MockData.hybridWeek`.
 
-### 3.1 NLP Input Parsing
-- Parse the free-text description from `PlanInputView` into structured fields (`UserProfile.description`, selected activities, duration constraints)
-- Replace `MockData.parsedInput` with a real parser — either on-device with NaturalLanguage framework or via a backend call to the Claude API
-- The "What I heard" card should reflect the actual parsed output
+### 3.1 NLP Input Parsing ✅ (implemented — Apple Foundation Models)
+- `FoundationModelService.parseInput(_:)` extracts goals, modalities, session length, and constraints from free-text using `@Generable` structured output
+- The "What I heard" card updates live with the parsed result
 
-### 3.2 Plan Generation Service
-- Build a backend endpoint (or direct Claude API call) that accepts the parsed user input + readiness history and returns a `WeekPlan`
-- The generated plan should respect: selected `FitnessGoal`s from onboarding, available modalities, session length constraints, and current readiness trend
-- "Generate my week" should show a loading state and populate `AppState.currentPlan` with the real response
+### 3.2 Plan Generation Service ✅ (implemented — Apple Foundation Models)
+- `FoundationModelService.generateWeekPlan(...)` produces a `GeneratedPlan` using on-device Foundation Models — no backend, fully private
+- `AppState.applyGeneratedPlan(_:)` converts the `GeneratedPlan` → `WeekPlan` with real calendar dates
+- "Generate my week" shows a loading state and populates `AppState.currentPlan`
+- Falls back to MockData when Apple Intelligence is unavailable
 
 ### 3.3 Readiness-Driven Daily Adjustment
 - Each morning, compare today's readiness score against the planned session's load
@@ -118,23 +118,25 @@ The Eat tab UI is solid but entirely static. `FoodView` reads directly from `Moc
 
 ---
 
-## Phase 5 — Coach Chat
+## Phase 5 — Coach Chat ✅ (implemented — Apple Foundation Models)
 
-`CoachPlaceholder` is the only stub tab. It needs to become a functional conversational interface.
+All AI in HealthFit runs on-device via Apple's Foundation Models framework. No data leaves the device.
 
-### 5.1 Chat UI
-- Build a message thread view with user bubbles and assistant bubbles
-- Support text input with a send button
-- Show a typing indicator while the AI responds
+### 5.1 Chat UI ✅
+- `CoachView` replaces `CoachPlaceholder` with a full streaming message thread
+- User and assistant bubbles via `ChatBubble` component
+- Input bar with multi-line `TextField`, send button, and streaming indicator
 
-### 5.2 Claude API Integration
-- Connect the chat to the Claude API (Anthropic SDK)
-- Seed the system prompt with the user's profile, current plan, today's readiness snapshot, and today's food log so responses are context-aware
-- Stream responses for a real-time feel
+### 5.2 Foundation Models Integration ✅
+- `FoundationModelService.streamCoachReply(to:context:)` streams responses via `LanguageModelSession`
+- Persistent `coachSession` maintains conversation history within the session
+- Context (readiness score, plan week) injected into each prompt automatically
+- Graceful unavailable state shown on non-Apple Intelligence devices
 
 ### 5.3 Proactive Coach Nudges
 - Surface coach suggestions on the Today tab (e.g., "You're under on protein — add a shake before your lift")
 - Generate a brief end-of-week summary when the plan week closes
+- `FoundationModelService.enhanceReadinessReasoning(_:userName:state:)` can personalise the morning briefing text
 
 ---
 

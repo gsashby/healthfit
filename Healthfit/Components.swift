@@ -4,6 +4,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Buttons
 
@@ -117,9 +120,13 @@ struct ReasoningCallout: View {
                 .background(tint.opacity(0.18))
                 .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 2) {
-                (Text(title).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.text)
-                 + Text(" \(message)").font(.system(size: 13)).foregroundColor(Theme.textMuted))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Text(message)
+                    .font(.system(size: 13))
+                    .foregroundColor(Theme.textMuted)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -155,18 +162,45 @@ struct ProfileField: View {
     let label: String
     let placeholder: String
     @Binding var text: String
+    #if canImport(UIKit)
     var keyboard: UIKeyboardType = .default
+    #endif
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label).eyebrow()
             TextField(placeholder, text: $text)
+                #if canImport(UIKit)
                 .keyboardType(keyboard)
+                #endif
                 .font(.system(size: 16))
                 .foregroundColor(Theme.text)
                 .padding(14)
                 .background(Theme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+}
+
+// MARK: - Chat bubble
+
+struct ChatBubble: View {
+    let message: ChatMessage
+
+    var isUser: Bool { message.role == .user }
+
+    var body: some View {
+        HStack {
+            if isUser { Spacer(minLength: 48) }
+            Text(message.text.isEmpty ? "…" : message.text)
+                .font(.system(size: 15))
+                .foregroundColor(isUser ? .black : Theme.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isUser ? Theme.green : Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+            if !isUser { Spacer(minLength: 48) }
         }
     }
 }

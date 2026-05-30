@@ -12,13 +12,18 @@ import SwiftData
 struct HealthFitApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var authService = AuthService()
+    @StateObject private var readinessService = ReadinessService()
+    @StateObject private var fmService = FoundationModelService()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
                 .environmentObject(authService)
+                .environmentObject(readinessService)
+                .environmentObject(fmService)
                 .preferredColorScheme(.dark)
+                .onAppear { appState.advanceWeekIfNeeded() }
         }
         .modelContainer(for: PersistedProfile.self)
     }

@@ -142,8 +142,14 @@ private struct AuthFieldWelcome: View {
     var body: some View {
         Group {
             if isSecure { SecureField(placeholder, text: $text) }
-            else { TextField(placeholder, text: $text).keyboardType(.emailAddress)
-                       .textInputAutocapitalization(.never).autocorrectionDisabled() }
+            else {
+                TextField(placeholder, text: $text)
+                    #if canImport(UIKit)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+            }
         }
         .font(.system(size: 16)).foregroundColor(Theme.text)
         .padding(14).background(Theme.card)

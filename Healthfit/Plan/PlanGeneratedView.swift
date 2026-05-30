@@ -7,13 +7,28 @@ import SwiftUI
 
 struct PlanGeneratedView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var fmService: FoundationModelService
+
+    @State private var showSwapSheet = false
+    @State private var isRegenerating = false
+    @State private var regenerateError: String?
 
     private var plan: WeekPlan { appState.currentPlan }
+
+    private var workoutDayCount: Int { plan.days.filter { !$0.sessions.allSatisfy { $0.kind == .rest } }.count }
+    private var liftCount: Int       { plan.days.flatMap(\.sessions).filter { $0.kind == .lift }.count }
+    private var runCount: Int        { plan.days.flatMap(\.sessions).filter { $0.kind == .run  }.count }
+    private var yogaCount: Int       { plan.days.flatMap(\.sessions).filter { $0.kind == .yoga }.count }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 12) {
                 hero
+
+                if appState.needsNewWeekPlan && plan.weekIndex < plan.totalWeeks {
+                    newWeekBanner
+                }
+
                 summaryCard
 
                 ForEach(plan.days) { day in
@@ -32,6 +47,9 @@ struct PlanGeneratedView: View {
             .padding(.horizontal, 18)
             .padding(.top, 16)
             .padding(.bottom, 28)
+        }
+        .sheet(isPresented: $showSwapSheet) {
+            SwapDaySheet().environmentObject(appState)
         }
     }
 
@@ -57,7 +75,7 @@ struct PlanGeneratedView: View {
                 .foregroundColor(Theme.blue)
                 .textCase(.uppercase)
                 .tracking(0.7)
-            Text("Hybrid plan · Week \(plan.weekIndex) of \(plan.totalWeeks)")
+            Text("\(plan.phase) · Week \(plan.weekIndex) of \(plan.totalWeeks)")
                 .font(.system(size: 26, weight: .bold))
                 .foregroundColor(Theme.text)
             Text(plan.summary)
@@ -66,7 +84,44 @@ struct PlanGeneratedView: View {
                 .lineSpacing(2)
                 .padding(.top, 2)
                 .fixedSize(horizontal: false, vertical: true)
+
+            // Week progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Theme.card2)
+                        .frame(height: 4)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Theme.blue)
+                        .frame(width: geo.size.width * CGFloat(plan.weekIndex) / CGFloat(max(plan.totalWeeks, 1)),
+                               height: 4)
+                }
+            }
+            .frame(height: 4)
+            .padding(.top, 4)
         }
+    }
+
+    private var newWeekBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar.badge.plus")
+                .foregroundColor(Theme.blue)
+            Text("Week \(plan.weekIndex + 1) ready — generate your next plan")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Theme.text)
+            Spacer()
+            Button {
+                appState.needsNewWeekPlan = false
+                appState.planMode = .input
+            } label: {
+                Text("Generate")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Theme.blue)
+            }
+        }
+        .padding(14)
+        .background(Theme.blue.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var summaryCard: some View {
@@ -76,14 +131,14 @@ struct PlanGeneratedView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Theme.text)
                 Spacer()
-                StatusTag(text: "Hybrid · Cut", tint: Theme.blue)
+                StatusTag(text: plan.phase, tint: Theme.blue)
             }
 
             HStack(spacing: 6) {
-                stat(n: "5", l: "Workouts")
-                stat(n: "2", l: "Lifts")
-                stat(n: "3", l: "Runs")
-                stat(n: "7", l: "Yoga")
+                stat(n: "\(workoutDayCount)", l: "Active days")
+                stat(n: "\(liftCount)",       l: "Lifts")
+                stat(n: "\(runCount)",         l: "Runs")
+                stat(n: "\(yogaCount)",        l: "Yoga")
             }
         }
         .padding(18)
@@ -109,9 +164,81 @@ struct PlanGeneratedView: View {
     }
 
     private var actions: some View {
-        HStack(spacing: 8) {
-            PrimaryButton(title: "Lock in plan", tint: Theme.blue, action: {})
-            SecondaryButton(title: "Swap a day", action: {})
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                if appState.planLocked {
+                    PrimaryButton(title: "Plan locked ✓", tint: Theme.green, action: {})
+                        .disabled(true)
+                } else {
+                    PrimaryButton(title: "Lock in plan", tint: Theme.blue) {
+                        appState.lockPlan()
+                    }
+                }
+                SecondaryButton(title: "Swap a day") {
+                    showSwapSheet = true
+                }
+            }
+
+            if !appState.planLocked {
+                Button {
+                    refreshPlan()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isRegenerating {
+                            ProgressView().scaleEffect(0.75).tint(Theme.blue)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text(isRegenerating ? "Regenerating…" : "Refresh plan")
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Theme.blue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .disabled(isRegenerating)
+
+                if let err = regenerateError {
+                    Text(err)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func refreshPlan() {
+        guard !isRegenerating else { return }
+        regenerateError = nil
+
+        guard fmService.isAvailable else {
+            appState.regeneratePlan()
+            return
+        }
+
+        isRegenerating = true
+        Task {
+            do {
+                let description = appState.lastPlanDescription.isEmpty
+                    ? appState.user.description
+                    : appState.lastPlanDescription
+                let generated = try await fmService.generateWeekPlan(
+                    userDescription: description,
+                    profile: appState.user,
+                    goals: appState.selectedGoals,
+                    trainingType: appState.trainingType,
+                    strengthSplit: appState.strengthSplit,
+                    readinessState: appState.readinessState
+                )
+                appState.applyGeneratedPlan(generated)
+            } catch {
+                regenerateError = "Couldn't regenerate — using your existing plan."
+                appState.regeneratePlan()
+            }
+            isRegenerating = false
         }
     }
 }
@@ -183,8 +310,100 @@ struct DayCard: View {
     }
 }
 
+// MARK: - SwapDaySheet
+
+struct SwapDaySheet: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var firstSelection: Int? = nil
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.bg.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(firstSelection == nil
+                             ? "Tap a day to select it, then tap another to swap."
+                             : "Now tap the day to swap with.")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.textMuted)
+                            .padding(.horizontal, 18)
+                            .padding(.top, 8)
+
+                        ForEach(Array(appState.currentPlan.days.enumerated()), id: \.offset) { idx, day in
+                            swapRow(index: idx, day: day)
+                        }
+                    }
+                    .padding(.bottom, 28)
+                }
+            }
+            .navigationTitle("Swap a day")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.foregroundColor(Theme.green)
+                }
+            }
+        }
+    }
+
+    private func swapRow(index: Int, day: PlanDay) -> some View {
+        let isSelected = firstSelection == index
+        return HStack(spacing: 14) {
+            VStack(spacing: 2) {
+                Text(day.weekday.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Theme.textMuted)
+                    .tracking(0.6)
+                Text(String(format: "%02d", day.dayNumber))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(isSelected ? Theme.blue : Theme.text)
+            }
+            .frame(width: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(day.tag)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Theme.textMuted)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                Text(day.sessions.map(\.name).joined(separator: " · "))
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Theme.blue)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .background(isSelected ? Theme.blue.opacity(0.1) : Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 18)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let first = firstSelection, first != index {
+                appState.swapDays(a: first, b: index)
+                firstSelection = nil
+            } else {
+                firstSelection = isSelected ? nil : index
+            }
+        }
+    }
+}
+
 #Preview {
     NavigationStack { PlanGeneratedView() }
         .environmentObject(AppState())
+        .environmentObject(FoundationModelService())
         .preferredColorScheme(.dark)
 }
