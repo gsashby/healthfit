@@ -11,6 +11,10 @@ struct FoodView: View {
     @EnvironmentObject var readinessService: ReadinessService
     @State private var showingPhotoLog = false
     @State private var showingSearch = false
+    @State private var showingCamera = false
+    @State private var showingCameraResults = false
+    @State private var isAnalyzingImage = false
+    @State private var cameraDetectedLabel = ""
     @State private var entryToEdit: FoodEntry? = nil
 
     // Mirror TodayView's readiness resolution so targets stay in sync.
@@ -124,7 +128,7 @@ struct FoodView: View {
                     Label("Search food database", systemImage: "magnifyingglass")
                 }
                 Button {
-                    showingPhotoLog = true
+                    showingCamera = true
                 } label: {
                     Label("Scan with camera", systemImage: "camera")
                 }
@@ -155,6 +159,44 @@ struct FoodView: View {
         .sheet(item: $entryToEdit) { entry in
             EditEntrySheet(entry: entry)
                 .presentationDetents([.medium, .large])
+        }
+        .fullScreenCover(isPresented: $showingCamera) {
+            CameraPickerView(
+                onImageSelected: { image in
+                    showingCamera = false
+                    isAnalyzingImage = true
+                    Task {
+                        let label = await classifyFoodInImage(image)
+                        cameraDetectedLabel = label ?? ""
+                        isAnalyzingImage = false
+                        showingCameraResults = true
+                    }
+                },
+                onCancel: { showingCamera = false }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showingCameraResults) {
+            FoodSearchView(initialQuery: cameraDetectedLabel)
+                .presentationDetents([.large])
+        }
+        .overlay {
+            if isAnalyzingImage {
+                ZStack {
+                    Color.black.opacity(0.55).ignoresSafeArea()
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .scaleEffect(1.4)
+                            .tint(.white)
+                        Text("Identifying food…")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                    .padding(28)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+            }
         }
     }
 

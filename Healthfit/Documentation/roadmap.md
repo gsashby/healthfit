@@ -110,10 +110,12 @@ The Eat tab UI is solid but entirely static. `FoodView` reads directly from `Moc
 - `PhotoLogSheet` — tapping a suggestion creates and logs a `FoodEntry` (kcal + allergens from mock; macros deferred to 4.1); includes a meal-type segmented picker auto-seeded from time of day
 - `PhotoLogSheet` — "None of these — type it" opens an inline `ManualEntryView` form (name required, kcal required, carbs/protein/fat optional)
 
-### 4.3 Photo-Based Food Recognition
-- Replace the simulated camera scan with a real AVFoundation camera capture
-- Use the Vision framework or a food recognition API (Clarifai, LogMeal) to identify food in the image
-- Return real matches instead of the hardcoded `MockData.foodPickerSuggestions`
+### 4.3 Photo-Based Food Recognition ✅ (implemented)
+- `CameraPickerView` — `UIViewControllerRepresentable` wrapping `UIImagePickerController`; uses live camera on device, falls back to photo library on the simulator
+- `classifyFoodInImage(_:)` — runs `VNClassifyImageRequest` on-device (no API key, no network); strips generic labels ("food", "produce", etc.) and snake_case/parenthetical artefacts from Vision identifiers
+- "Scan with camera" now opens the real camera via `fullScreenCover`; after capture a translucent "Identifying food…" spinner overlays `FoodView` while Vision classifies the image
+- On classification, `FoodSearchView(initialQuery: detectedLabel)` is presented pre-populated, triggering a live USDA search — user sees real nutritional results for the photographed food, can edit the query if needed
+- `NSCameraUsageDescription` added to both build configurations in `project.pbxproj`
 
 ### 4.4 Dietary Profile Capture ✅ (implemented)
 - New onboarding step 3 of 5 (`DietarySetupView`) captures allergies (Dairy, Eggs, Gluten, Tree nuts, Peanuts, Soy, Shellfish, Fish) and preferences (High-protein, Low-carb, Vegetarian, Vegan, Dairy-free, Gluten-free, Keto, Paleo) via multi-select pills; skippable

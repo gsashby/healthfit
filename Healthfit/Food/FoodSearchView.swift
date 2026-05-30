@@ -10,6 +10,8 @@ import SwiftUI
 // MARK: - Main search view
 
 struct FoodSearchView: View {
+    var initialQuery: String = ""
+
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @StateObject private var db = FoodDatabaseService()
@@ -34,6 +36,11 @@ struct FoodSearchView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }.foregroundColor(Theme.textMuted)
                 }
+            }
+            .onAppear {
+                guard !initialQuery.isEmpty, query.isEmpty else { return }
+                query = initialQuery
+                db.search(query: initialQuery)
             }
         }
         .sheet(item: $selectedResult) { result in

@@ -25,6 +25,7 @@
 		39B20C9A2FAA3F4A006180A4 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C762FAA3F4A006180A4 /* Models.swift */; };
 		39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C752FAA3F4A006180A4 /* MockData.swift */; };
 		39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C662FAA3F4A006180A4 /* FoodView.swift */; };
+		5ED342FD7F1E4B2CB4F1CFA5 /* CameraFoodRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */; };
 		F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */; };
 		161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */; };
 		39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */; };
@@ -57,6 +58,7 @@
 		39B20C642FAA3F4A006180A4 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		39B20C652FAA3F4A006180A4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		39B20C662FAA3F4A006180A4 /* FoodView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodView.swift; sourceTree = "<group>"; };
+		10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFoodRecognizer.swift; sourceTree = "<group>"; };
 		0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodDatabaseService.swift; sourceTree = "<group>"; };
 		06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchView.swift; sourceTree = "<group>"; };
 		39B20C682FAA3F4A006180A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -153,6 +155,7 @@
 			isa = PBXGroup;
 			children = (
 				39B20C662FAA3F4A006180A4 /* FoodView.swift */,
+				10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */,
 				0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */,
 				06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */,
 			);
@@ -373,6 +376,7 @@
 				39B20C9A2FAA3F4A006180A4 /* Models.swift in Sources */,
 				39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */,
 				39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */,
+				5ED342FD7F1E4B2CB4F1CFA5 /* CameraFoodRecognizer.swift in Sources */,
 				F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */,
 				161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */,
 				C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */,
@@ -533,6 +537,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthFit;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSCameraUsageDescription = "HealthFit uses the camera to identify food items for your nutrition log.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HealthFit reads your HRV, sleep, and heart rate to calculate daily readiness and adapt your training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HealthFit saves your completed workouts to Apple Health.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -576,6 +581,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthFit;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSCameraUsageDescription = "HealthFit uses the camera to identify food items for your nutrition log.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HealthFit reads your HRV, sleep, and heart rate to calculate daily readiness and adapt your training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HealthFit saves your completed workouts to Apple Health.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
