@@ -93,15 +93,22 @@ Currently "Generate my week" calls `appState.regeneratePlan()` which just reload
 
 The Eat tab UI is solid but entirely static. `FoodView` reads directly from `MockData.dayNutrition`.
 
-### 4.1 Food Database Integration
-- Integrate a food database API (USDA FoodData Central is free; Nutritionix is more comprehensive)
-- Add a search-by-name flow as an alternative to the photo log
-- Map API responses to `FoodEntry` and `Macros`
+### 4.1 Food Database Integration ✅ (implemented)
+- `FoodDatabaseService` queries the USDA FoodData Central API (free DEMO_KEY; swap for a registered key at fdc.nal.usda.gov for production rate limits)
+- Parses nutrient IDs 1008/1003/1005/1004 (energy, protein, carbs, fat) from search results; scales per-100g values to the food's serving size
+- 0.5 s debounce cancels in-flight requests on each keystroke; graceful error state for network failures
+- `FoodSearchView` — full-screen NavigationStack sheet with a live search bar, lazy result rows (name, brand, kcal, macros, serving size), and empty/loading/error states
+- `SearchResultSheet` — serving picker (0.5× increments with animated numericText), live macro summary that updates as servings change, meal-type segmented picker (auto-seeded by time of day)
+- "Log food" FAB in `FoodView` is now a `Menu` offering "Search food database" (new) and "Scan with camera" (existing photo log)
 
-### 4.2 Real Food Logging
-- Tapping a suggestion in `PhotoLogSheet` should write a `FoodEntry` to the persistent store
-- "None of these — type it" should open a manual entry form
-- The macro ring and bars in `FoodView` should compute from today's logged entries, not `MockData.dayNutrition`
+### 4.2 Real Food Logging ✅ (implemented)
+- `FoodEntry` and `Macros` are now `Codable`; today's log persisted to UserDefaults keyed by date (auto-resets next day)
+- `AppState` owns `todayFoodLog: [FoodEntry]` with `logFood(_:)`, `removeFoodEntry(id:)`, and `loadFoodLog()` (called on launch via `configure(with:)`)
+- `FoodView.nutrition` computes `kcalEaten`, `macroEaten`, and `entries` from the real log — macro ring and bars are live
+- Empty state shown when no food is logged yet
+- Swipe-to-delete on any logged meal row
+- `PhotoLogSheet` — tapping a suggestion creates and logs a `FoodEntry` (kcal + allergens from mock; macros deferred to 4.1); includes a meal-type segmented picker auto-seeded from time of day
+- `PhotoLogSheet` — "None of these — type it" opens an inline `ManualEntryView` form (name required, kcal required, carbs/protein/fat optional)
 
 ### 4.3 Photo-Based Food Recognition
 - Replace the simulated camera scan with a real AVFoundation camera capture

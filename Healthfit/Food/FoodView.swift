@@ -10,6 +10,7 @@ struct FoodView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var readinessService: ReadinessService
     @State private var showingPhotoLog = false
+    @State private var showingSearch = false
     @State private var entryToEdit: FoodEntry? = nil
 
     // Mirror TodayView's readiness resolution so targets stay in sync.
@@ -115,12 +116,21 @@ struct FoodView: View {
                 .padding(.bottom, 110)
             }
 
-            // Floating photo-log FAB
-            Button {
-                showingPhotoLog = true
+            // Floating "Log food" FAB — menu offers search or camera
+            Menu {
+                Button {
+                    showingSearch = true
+                } label: {
+                    Label("Search food database", systemImage: "magnifyingglass")
+                }
+                Button {
+                    showingPhotoLog = true
+                } label: {
+                    Label("Scan with camera", systemImage: "camera")
+                }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "camera.fill")
+                    Image(systemName: "plus")
                     Text("Log food")
                         .font(.system(size: 15, weight: .semibold))
                 }
@@ -133,7 +143,10 @@ struct FoodView: View {
             }
             .padding(.trailing, 18)
             .padding(.bottom, 18)
-            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showingSearch) {
+            FoodSearchView()
+                .presentationDetents([.large])
         }
         .sheet(isPresented: $showingPhotoLog) {
             PhotoLogSheet()

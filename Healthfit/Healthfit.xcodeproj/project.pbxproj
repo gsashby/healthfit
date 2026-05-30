@@ -25,6 +25,8 @@
 		39B20C9A2FAA3F4A006180A4 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C762FAA3F4A006180A4 /* Models.swift */; };
 		39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C752FAA3F4A006180A4 /* MockData.swift */; };
 		39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C662FAA3F4A006180A4 /* FoodView.swift */; };
+		F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */; };
+		161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */; };
 		39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */; };
 		C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */; };
 		DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */; };
@@ -55,6 +57,8 @@
 		39B20C642FAA3F4A006180A4 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		39B20C652FAA3F4A006180A4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		39B20C662FAA3F4A006180A4 /* FoodView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodView.swift; sourceTree = "<group>"; };
+		0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodDatabaseService.swift; sourceTree = "<group>"; };
+		06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchView.swift; sourceTree = "<group>"; };
 		39B20C682FAA3F4A006180A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		39B20C6A2FAA3F4A006180A4 /* Healthfit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Healthfit.entitlements; sourceTree = "<group>"; };
 		39B20C6D2FAA3F4A006180A4 /* Healthfit.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Healthfit.xcodeproj; sourceTree = "<group>"; };
@@ -149,6 +153,8 @@
 			isa = PBXGroup;
 			children = (
 				39B20C662FAA3F4A006180A4 /* FoodView.swift */,
+				0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */,
+				06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */,
 			);
 			path = Food;
 			sourceTree = "<group>";
@@ -367,6 +373,8 @@
 				39B20C9A2FAA3F4A006180A4 /* Models.swift in Sources */,
 				39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */,
 				39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */,
+				F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */,
+				161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */,
 				C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */,
 				DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */,
 			);
