@@ -28,6 +28,8 @@
 		5ED342FD7F1E4B2CB4F1CFA5 /* CameraFoodRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */; };
 		F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */; };
 		161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */; };
+		60EA23F64D614D67BBEB419C /* OpenFoodFactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74503E72B29B4D4A983D80FB /* OpenFoodFactsService.swift */; };
+		2CF82FCAD2F24AD0A8EDB6F8 /* BarcodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A12555CACE403E9CF4586D /* BarcodeScannerView.swift */; };
 		39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */; };
 		C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */; };
 		DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */; };
@@ -61,6 +63,8 @@
 		10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFoodRecognizer.swift; sourceTree = "<group>"; };
 		0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodDatabaseService.swift; sourceTree = "<group>"; };
 		06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchView.swift; sourceTree = "<group>"; };
+		74503E72B29B4D4A983D80FB /* OpenFoodFactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFoodFactsService.swift; sourceTree = "<group>"; };
+		05A12555CACE403E9CF4586D /* BarcodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerView.swift; sourceTree = "<group>"; };
 		39B20C682FAA3F4A006180A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		39B20C6A2FAA3F4A006180A4 /* Healthfit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Healthfit.entitlements; sourceTree = "<group>"; };
 		39B20C6D2FAA3F4A006180A4 /* Healthfit.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Healthfit.xcodeproj; sourceTree = "<group>"; };
@@ -158,6 +162,8 @@
 				10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */,
 				0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */,
 				06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */,
+				74503E72B29B4D4A983D80FB /* OpenFoodFactsService.swift */,
+				05A12555CACE403E9CF4586D /* BarcodeScannerView.swift */,
 			);
 			path = Food;
 			sourceTree = "<group>";
@@ -379,6 +385,8 @@
 				5ED342FD7F1E4B2CB4F1CFA5 /* CameraFoodRecognizer.swift in Sources */,
 				F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */,
 				161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */,
+				60EA23F64D614D67BBEB419C /* OpenFoodFactsService.swift in Sources */,
+				2CF82FCAD2F24AD0A8EDB6F8 /* BarcodeScannerView.swift in Sources */,
 				C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */,
 				DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */,
 			);

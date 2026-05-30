@@ -13,6 +13,7 @@ struct FoodView: View {
     @State private var showingSearch = false
     @State private var showingCamera = false
     @State private var showingCameraResults = false
+    @State private var showingBarcode = false
     @State private var isAnalyzingImage = false
     @State private var cameraDetectedLabel = ""
     @State private var entryToEdit: FoodEntry? = nil
@@ -120,7 +121,7 @@ struct FoodView: View {
                 .padding(.bottom, 110)
             }
 
-            // Floating "Log food" FAB — menu offers search or camera
+            // Floating "Log food" FAB — menu offers search, barcode, or camera
             Menu {
                 Button {
                     showingSearch = true
@@ -128,9 +129,14 @@ struct FoodView: View {
                     Label("Search food database", systemImage: "magnifyingglass")
                 }
                 Button {
+                    showingBarcode = true
+                } label: {
+                    Label("Scan barcode", systemImage: "barcode.viewfinder")
+                }
+                Button {
                     showingCamera = true
                 } label: {
-                    Label("Scan with camera", systemImage: "camera")
+                    Label("Identify with camera", systemImage: "camera")
                 }
             } label: {
                 HStack(spacing: 8) {
@@ -179,6 +185,10 @@ struct FoodView: View {
         .sheet(isPresented: $showingCameraResults) {
             FoodSearchView(initialQuery: cameraDetectedLabel)
                 .presentationDetents([.large])
+        }
+        .fullScreenCover(isPresented: $showingBarcode) {
+            BarcodeScannerView()
+                .ignoresSafeArea()
         }
         .overlay {
             if isAnalyzingImage {

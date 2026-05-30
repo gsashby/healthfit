@@ -167,7 +167,7 @@ private struct FoodResultRow: View {
 
 // MARK: - Serving picker + confirm sheet
 
-private struct SearchResultSheet: View {
+struct SearchResultSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 

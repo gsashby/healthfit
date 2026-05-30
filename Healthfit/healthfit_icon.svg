@@ -1,0 +1,61 @@
+<svg width="100%" viewBox="0 0 680 680" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Healthfit kettlebell app icon</title>
+  <desc>A bold black kettlebell icon with a green accent stripe on a vibrant green gradient background</desc>
+
+  <defs>
+    <clipPath id="iconClip">
+      <rect x="90" y="90" width="500" height="500" rx="100"/>
+    </clipPath>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2ecc71"/>
+      <stop offset="100%" stop-color="#1a7a42"/>
+    </linearGradient>
+    <linearGradient id="ballGrad" x1="0.25" y1="0.1" x2="0.75" y2="0.95">
+      <stop offset="0%" stop-color="#2d2d2d"/>
+      <stop offset="100%" stop-color="#111111"/>
+    </linearGradient>
+    <linearGradient id="handleGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3a3a3a"/>
+      <stop offset="50%" stop-color="#555555"/>
+      <stop offset="100%" stop-color="#2e2e2e"/>
+    </linearGradient>
+    <filter id="subtleShadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- App icon background -->
+  <rect x="90" y="90" width="500" height="500" rx="100" fill="url(#bgGrad)" filter="url(#subtleShadow)"/>
+
+  <!-- Background texture highlight -->
+  <ellipse cx="270" cy="200" rx="180" ry="100" fill="#3dda7a" opacity="0.25" clip-path="url(#iconClip)"/>
+
+  <!-- HANDLE top arc -->
+  <path d="M 225 355 Q 225 192 340 192 Q 455 192 455 355"
+        fill="none" stroke="url(#handleGrad)" stroke-width="54" stroke-linecap="round"
+        clip-path="url(#iconClip)"/>
+
+  <!-- Handle inner hollow -->
+  <path d="M 247 355 Q 247 218 340 218 Q 433 218 433 355"
+        fill="none" stroke="#2ecc71" stroke-width="16" stroke-linecap="round"
+        clip-path="url(#iconClip)"/>
+
+  <!-- BALL body -->
+  <ellipse cx="340" cy="450" rx="158" ry="150" fill="url(#ballGrad)" clip-path="url(#iconClip)"/>
+
+  <!-- Ball highlight sheen -->
+  <ellipse cx="292" cy="388" rx="52" ry="35" fill="#3a3a3a" opacity="0.6" clip-path="url(#iconClip)"/>
+
+  <!-- GREEN accent stripe -->
+  <rect x="183" y="434" width="314" height="24" rx="3" fill="#1faa56" clip-path="url(#iconClip)"/>
+  <!-- Stripe highlight top edge -->
+  <rect x="183" y="434" width="314" height="7" rx="3" fill="#3dda7a" opacity="0.55" clip-path="url(#iconClip)"/>
+
+  <!-- Neck connecting handle to ball -->
+  <rect x="300" y="336" width="80" height="38" rx="6" fill="url(#handleGrad)" clip-path="url(#iconClip)"/>
+  <line x1="300" y1="355" x2="380" y2="355" stroke="#1a1a1a" stroke-width="2" clip-path="url(#iconClip)"/>
+
+  <!-- Bottom shadow on ball -->
+  <ellipse cx="340" cy="585" rx="128" ry="18" fill="#0d5c2e" opacity="0.5" clip-path="url(#iconClip)"/>
+
+</svg>
