@@ -892,6 +892,12 @@ struct WorkoutSessionView: View {
                     .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.blue)
                     .textCase(.uppercase).tracking(0.5)
                 Text(ex.name).font(.system(size: 19, weight: .bold)).foregroundColor(Theme.text)
+                // Show a hint when weights are pre-filled from history and no sets logged yet
+                if ex.completedWorkingCount == 0,
+                   let firstWeight = ex.workingSets.first?.weightLbs, firstWeight > 0 {
+                    Label("Starting weight from last session", systemImage: "clock.arrow.circlepath")
+                        .font(.system(size: 11)).foregroundColor(Theme.blue)
+                }
             }
 
             // Exercise description / cue
@@ -1319,7 +1325,11 @@ struct WorkoutSessionView: View {
             guard !name.isEmpty else { return nil }
             let repsStr = String(chip[xr.upperBound...]).trimmingCharacters(in: .whitespaces)
             let defaultReps = Int(repsStr) ?? 8
-            let sets = (0..<setCount).map { _ in WorkoutSet(targetReps: repsStr, completedReps: defaultReps) }
+            // Pre-populate weight from the last session's history-derived suggestion.
+            let suggested = appState.suggestedWeight(for: name, targetRepsStr: repsStr) ?? 0
+            let sets = (0..<setCount).map { _ in
+                WorkoutSet(targetReps: repsStr, weightLbs: suggested, completedReps: defaultReps)
+            }
             return WorkoutExercise(name: name, description: exerciseCue(for: name, reps: repsStr), sets: sets)
         }
     }
@@ -1394,6 +1404,16 @@ struct WorkoutSessionView: View {
 
     private func finishWorkout() {
         isSaving = true
+
+        // Persist working-set weights so future sessions get suggested starting weights.
+        if isLift {
+            for ex in exercises where !ex.isSkipped {
+                let logged = ex.workingSets.filter { $0.isLogged && !$0.isSkipped && $0.weightLbs > 0 }
+                guard !logged.isEmpty else { continue }
+                appState.logExercise(ex.name, sets: logged.map { (weight: $0.weightLbs, reps: $0.completedReps) })
+            }
+        }
+
         let end = Date()
         let activityType: HKWorkoutActivityType
         switch session.kind {
@@ -1509,10 +1529,25 @@ private struct WorkoutSummaryView: View {
 
     private func exerciseBreakdown(ex: WorkoutExercise) -> some View {
         let loggedSets = ex.sets.filter(\.isLogged)
+        // Epley 1RM from the best working set in this session
+        let oneRM: Double? = {
+            let best = ex.workingSets
+                .filter { $0.isLogged && !$0.isSkipped && $0.weightLbs > 0 && $0.completedReps > 0 }
+                .map { $0.weightLbs * (1 + Double($0.completedReps) / 30) }
+                .max()
+            return (best ?? 0) > 0 ? best : nil
+        }()
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(ex.name).font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(ex.isSkipped ? Theme.textMuted : Theme.text)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ex.name).font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(ex.isSkipped ? Theme.textMuted : Theme.text)
+                    if let rm = oneRM, !ex.isSkipped {
+                        Text("Est. 1RM: \(Int(rm.rounded())) lbs")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Theme.blue)
+                    }
+                }
                 Spacer()
                 if ex.isSkipped {
                     Text("Skipped").font(.system(size: 12)).foregroundColor(Theme.textMuted)

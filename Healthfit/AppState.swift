@@ -184,6 +184,71 @@ final class AppState: ObservableObject {
 
     func saveDietaryProfile() { persistToStore() }
 
+    // MARK: Lift history — per-exercise weight records and 1RM predictions
+
+    @Published var exerciseHistory: [String: [ExerciseRecord]] = [:]
+
+    /// Saves working-set results for one exercise, keeping the last 20 sessions.
+    func logExercise(_ name: String, sets: [(weight: Double, reps: Int)]) {
+        let working = sets.filter { $0.weight > 0 && $0.reps > 0 }
+            .map { LoggedSet(weightLbs: $0.weight, reps: $0.reps) }
+        guard !working.isEmpty else { return }
+        let record = ExerciseRecord(date: Date(), sets: working)
+        let key = normalizeExerciseName(name)
+        var history = exerciseHistory[key] ?? []
+        history.append(record)
+        if history.count > 20 { history.removeFirst(history.count - 20) }
+        exerciseHistory[key] = history
+        saveExerciseHistory()
+    }
+
+    /// Returns the all-time peak estimated 1RM (Epley) for display.
+    func estimatedOneRepMax(for name: String) -> Double? {
+        let records = exerciseHistory[normalizeExerciseName(name)] ?? []
+        let peak = records.map(\.estimatedOneRepMax).max() ?? 0
+        return peak > 0 ? peak : nil
+    }
+
+    /// Returns a suggested starting weight for the given exercise and rep target,
+    /// derived from the most recent session's estimated 1RM and a training percentage.
+    /// Result is rounded to the nearest 5 lbs.
+    func suggestedWeight(for name: String, targetRepsStr: String) -> Double? {
+        let key = normalizeExerciseName(name)
+        guard let latest = exerciseHistory[key]?
+            .sorted(by: { $0.date > $1.date }).first
+        else { return nil }
+        let oneRM = latest.estimatedOneRepMax
+        guard oneRM > 0 else { return nil }
+
+        let reps = Int(targetRepsStr.filter(\.isNumber)) ?? 8
+        let pct: Double
+        switch reps {
+        case ...3:    pct = 0.90
+        case 4...5:   pct = 0.85
+        case 6...8:   pct = 0.78
+        case 9...12:  pct = 0.72
+        default:      pct = 0.65
+        }
+        let raw = oneRM * pct
+        return max(5, (raw / 5).rounded() * 5)
+    }
+
+    func loadExerciseHistory() {
+        guard let data = UserDefaults.standard.data(forKey: "exerciseHistory"),
+              let history = try? JSONDecoder().decode([String: [ExerciseRecord]].self, from: data)
+        else { return }
+        exerciseHistory = history
+    }
+
+    private func saveExerciseHistory() {
+        guard let data = try? JSONEncoder().encode(exerciseHistory) else { return }
+        UserDefaults.standard.set(data, forKey: "exerciseHistory")
+    }
+
+    private func normalizeExerciseName(_ name: String) -> String {
+        name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: Notification preferences
 
     @Published var notifyMorning: Bool = UserDefaults.standard.object(forKey: "notifyMorning") as? Bool ?? true
@@ -308,6 +373,7 @@ final class AppState: ObservableObject {
         modelContext = context
         loadFoodLog()
         loadFromStore()
+        loadExerciseHistory()
     }
 
     private func loadFromStore() {
@@ -398,6 +464,8 @@ final class AppState: ObservableObject {
         preferredWorkoutHour = 7;   UserDefaults.standard.removeObject(forKey: "preferredWorkoutHour")
         preferredWorkoutMinute = 0; UserDefaults.standard.removeObject(forKey: "preferredWorkoutMinute")
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        exerciseHistory = [:]
+        UserDefaults.standard.removeObject(forKey: "exerciseHistory")
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",
                            weightLb: 0, goalWeightLb: 0, description: "")
         planLocked = false
