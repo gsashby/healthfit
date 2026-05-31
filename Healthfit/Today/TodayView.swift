@@ -150,7 +150,7 @@ struct TodayView: View {
             // 2. Nutrition nudge based on today's logged meals vs targets.
             let kcalLogged    = appState.todayFoodLog.reduce(0) { $0 + $1.kcal }
             let proteinLogged = appState.todayFoodLog.reduce(0) { $0 + $1.macros.proteinG }
-            let todayKind     = appState.currentPlan.days
+            let nudgeKind = appState.currentPlan.days
                 .first(where: { $0.isToday })?
                 .sessions.first(where: { $0.kind == .lift || $0.kind == .run })?
                 .kind
@@ -159,8 +159,8 @@ struct TodayView: View {
                 kcalTarget: snapshot.kcalTarget,
                 proteinLoggedG: proteinLogged,
                 proteinTargetG: snapshot.macros.proteinG,
-                sessionKind: todayKind == .lift ? "strength training"
-                           : todayKind == .run  ? "running" : "rest / recovery",
+                sessionKind: nudgeKind == .lift ? "strength training"
+                           : nudgeKind == .run  ? "running" : "rest / recovery",
                 userName: name
             )
             if !n.isEmpty { coachNudge = n }
