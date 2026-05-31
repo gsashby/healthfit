@@ -1404,10 +1404,25 @@ struct WorkoutSessionView: View {
         }
         let met: Double
         switch session.kind { case .lift: met = 5; case .run: met = 9; case .yoga: met = 2.5; case .rest: met = 3 }
-        let kcal = met * max(appState.user.weightLb, 100) * 0.453592 * Double(elapsed) / 3600
+        let bodyKg = max(appState.user.weightLb, 100) * 0.453592
+        let hours   = Double(elapsed) / 3600
+        let kcal    = met * bodyKg * hours
+
+        // Estimated distance for runs/walks: use a pace appropriate to the readiness state.
+        // No GPS is available, so this is MET-derived rather than tracked.
+        let distanceMeters: Double? = {
+            guard session.kind == .run || session.kind == .rest else { return nil }
+            let speedMs: Double = session.kind == .run ? 2.7 : 1.3  // ~9.7 km/h run, ~4.7 km/h walk
+            return speedMs * Double(elapsed)
+        }()
+
         Task {
-            try? await readinessService.saveWorkout(activityType: activityType, start: startDate, end: end,
-                                                     energyKcal: kcal > 1 ? kcal : nil)
+            try? await readinessService.saveWorkout(
+                activityType: activityType,
+                start: startDate, end: end,
+                energyKcal: kcal > 1 ? kcal : nil,
+                distanceMeters: distanceMeters
+            )
             appState.acceptTodaySession()
             dismiss()
         }

@@ -48,7 +48,11 @@ final class ReadinessService: ObservableObject {
         return s
     }()
 
-    static let shareTypes: Set<HKSampleType> = [HKObjectType.workoutType()]
+    static let shareTypes: Set<HKSampleType> = [
+        HKObjectType.workoutType(),
+        HKQuantityType(.activeEnergyBurned),
+        HKQuantityType(.distanceWalkingRunning),
+    ]
 
     // MARK: - Authorization
 
@@ -447,21 +451,36 @@ final class ReadinessService: ObservableObject {
 
     func saveWorkout(activityType: HKWorkoutActivityType,
                      start: Date, end: Date,
-                     energyKcal: Double? = nil) async throws {
+                     energyKcal: Double? = nil,
+                     distanceMeters: Double? = nil) async throws {
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
 
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
         try await builder.beginCollection(at: start)
 
-        if let energy = energyKcal {
-            let qty = HKQuantity(unit: .kilocalorie(), doubleValue: energy)
-            let sample = HKQuantitySample(
+        // Collect samples — use try? so a permission gap doesn't abort the workout save.
+        var samples: [HKQuantitySample] = []
+
+        if let energy = energyKcal, energy > 0 {
+            samples.append(HKQuantitySample(
                 type: HKQuantityType(.activeEnergyBurned),
-                quantity: qty,
+                quantity: HKQuantity(unit: .kilocalorie(), doubleValue: energy),
                 start: start, end: end
-            )
-            try await builder.addSamples([sample])
+            ))
+        }
+
+        if let distance = distanceMeters, distance > 0,
+           activityType == .running || activityType == .walking {
+            samples.append(HKQuantitySample(
+                type: HKQuantityType(.distanceWalkingRunning),
+                quantity: HKQuantity(unit: .meter(), doubleValue: distance),
+                start: start, end: end
+            ))
+        }
+
+        if !samples.isEmpty {
+            try? await builder.addSamples(samples)
         }
 
         try await builder.endCollection(at: end)
