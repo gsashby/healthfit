@@ -107,6 +107,36 @@ struct TodayView: View {
                 readiness: activeReadiness,
                 score: readinessService.latestData?.score ?? 0
             )
+
+            // MARK: Phase 6 — schedule notifications
+
+            // 6.1 Morning briefing (uses fresh readiness data if available)
+            if let data = readinessService.latestData {
+                await readinessService.scheduleMorningNotification(
+                    data: data, hour: 7, enabled: appState.notifyMorning
+                )
+            }
+
+            // 6.2 Workout reminder — 30 min before preferred time
+            let todaySession = appState.currentPlan.days
+                .first(where: { $0.isToday })?
+                .sessions.first(where: { $0.kind == .lift || $0.kind == .run })
+            await readinessService.scheduleWorkoutReminder(
+                hour: appState.preferredWorkoutHour,
+                minute: appState.preferredWorkoutMinute,
+                sessionName: todaySession?.name ?? "Today's workout",
+                enabled: appState.notifyWorkout && !appState.todaySessionAccepted
+            )
+
+            // 6.3 Nutrition nudge at noon
+            let todayKind = todaySession?.kind
+            let sessionKind = todayKind == .lift ? "strength training"
+                            : todayKind == .run  ? "running" : "rest"
+            await readinessService.scheduleNutritionNudge(
+                sessionKind: sessionKind,
+                enabled: appState.notifyNutrition
+            )
+
             guard fmService.isAvailable else { return }
 
             // Foundation Models cannot handle concurrent sessions — run sequentially.

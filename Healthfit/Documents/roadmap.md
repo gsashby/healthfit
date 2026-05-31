@@ -133,19 +133,23 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 
 ---
 
-## Phase 6 — Notifications & Engagement
+## Phase 6 — Notifications & Engagement ✅
 
-### 6.1 Morning Briefing Notification
-- Push notification when HealthKit overnight data is processed (~06:00–07:00)
-- Deep link to Today tab readiness card
+### 6.1 Morning Briefing Notification ✅
+- `ReadinessService.scheduleMorningNotification(data:hour:enabled:)` schedules a daily 7 AM `UNCalendarNotificationTrigger` carrying the readiness score, state label, and reasoning; called from `TodayView.task` after each readiness fetch
+- `AppNotificationDelegate` (in `HealthFitApp`) shows banners even when the app is foregrounded; notification tap deep-links to the Today tab via `NotificationCenter.default.post(name: .healthfitSwitchTab)`
+- `MainTabView` binds `TabView(selection:)` to `appState.selectedTab`; `HealthFitApp` observes `healthfitSwitchTab` and updates `selectedTab`
 
-### 6.2 Workout Reminders
-- Local notification 30 min before scheduled session (based on preferred workout time in Settings)
-- Auto-cancel when session is logged
+### 6.2 Workout Reminders ✅
+- `ReadinessService.scheduleWorkoutReminder(hour:minute:sessionName:enabled:)` fires 30 min before the user's preferred workout time (configurable in Settings)
+- Session name from today's plan is embedded in the notification body
+- `AppState.acceptTodaySession()` removes the pending request immediately when the workout is logged
+- Reminder is skipped (`enabled: false`) when session is already accepted
 
-### 6.3 Nutrition Nudges
-- Mid-day notification when significantly behind on protein or calories
-- Suppressed when targets are met
+### 6.3 Nutrition Nudges ✅
+- `ReadinessService.scheduleNutritionNudge(sessionKind:enabled:)` fires at 12:00 noon with session-specific copy (lift day → protein focus; run day → carb focus; rest → general)
+- `AppState.logFood(_:)` calls `cancelNutritionNudgeIfOnTrack()` after every food log entry; nudge is cancelled when kcal or protein is ≥ 80 % of the day's target
+- All three notification types toggle-controlled in Settings "Notifications" section with a `DatePicker` for workout time
 
 ---
 

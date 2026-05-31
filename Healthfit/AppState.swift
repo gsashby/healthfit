@@ -16,6 +16,7 @@ import AuthenticationServices
 import Security
 import SwiftData
 import WatchConnectivity
+import UserNotifications
 
 // MARK: - WatchConnectivityService
 
@@ -183,6 +184,29 @@ final class AppState: ObservableObject {
 
     func saveDietaryProfile() { persistToStore() }
 
+    // MARK: Notification preferences
+
+    @Published var notifyMorning: Bool = UserDefaults.standard.object(forKey: "notifyMorning") as? Bool ?? true
+    @Published var notifyWorkout: Bool = UserDefaults.standard.object(forKey: "notifyWorkout") as? Bool ?? true
+    @Published var notifyNutrition: Bool = UserDefaults.standard.object(forKey: "notifyNutrition") as? Bool ?? true
+    @Published var preferredWorkoutHour: Int = {
+        guard UserDefaults.standard.object(forKey: "preferredWorkoutHour") != nil else { return 7 }
+        return UserDefaults.standard.integer(forKey: "preferredWorkoutHour")
+    }()
+    @Published var preferredWorkoutMinute: Int = UserDefaults.standard.integer(forKey: "preferredWorkoutMinute")
+
+    func saveNotificationPreferences() {
+        UserDefaults.standard.set(notifyMorning,   forKey: "notifyMorning")
+        UserDefaults.standard.set(notifyWorkout,   forKey: "notifyWorkout")
+        UserDefaults.standard.set(notifyNutrition, forKey: "notifyNutrition")
+        UserDefaults.standard.set(preferredWorkoutHour,   forKey: "preferredWorkoutHour")
+        UserDefaults.standard.set(preferredWorkoutMinute, forKey: "preferredWorkoutMinute")
+    }
+
+    // MARK: Tab selection — updated by notification deep-links
+
+    @Published var selectedTab: Int = 0
+
     // MARK: Food log — today's entries, keyed by calendar date in UserDefaults
 
     @Published var todayFoodLog: [FoodEntry] = []
@@ -196,6 +220,19 @@ final class AppState: ObservableObject {
     func logFood(_ entry: FoodEntry) {
         todayFoodLog.append(entry)
         saveFoodLog()
+        cancelNutritionNudgeIfOnTrack()
+    }
+
+    private func cancelNutritionNudgeIfOnTrack() {
+        let kcalLogged    = todayFoodLog.reduce(0) { $0 + $1.kcal }
+        let proteinLogged = todayFoodLog.reduce(0) { $0 + $1.macros.proteinG }
+        let adj = adjustedTodayWorkout(readiness: readinessState)
+        let kcalPct    = Double(kcalLogged)    / Double(max(adj.kcalTarget, 1))
+        let proteinPct = Double(proteinLogged) / Double(max(adj.macros.proteinG, 1))
+        if kcalPct > 0.8 || proteinPct > 0.8 {
+            UNUserNotificationCenter.current()
+                .removePendingNotificationRequests(withIdentifiers: ["healthfit.nutrition-nudge"])
+        }
     }
 
     func removeFoodEntry(id: UUID) {
@@ -355,6 +392,12 @@ final class AppState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: foodLogKey)
         lastPlanDescription = ""
         UserDefaults.standard.removeObject(forKey: "lastPlanDescription")
+        notifyMorning = true;   UserDefaults.standard.removeObject(forKey: "notifyMorning")
+        notifyWorkout = true;   UserDefaults.standard.removeObject(forKey: "notifyWorkout")
+        notifyNutrition = true; UserDefaults.standard.removeObject(forKey: "notifyNutrition")
+        preferredWorkoutHour = 7;   UserDefaults.standard.removeObject(forKey: "preferredWorkoutHour")
+        preferredWorkoutMinute = 0; UserDefaults.standard.removeObject(forKey: "preferredWorkoutMinute")
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",
                            weightLb: 0, goalWeightLb: 0, description: "")
         planLocked = false
@@ -629,6 +672,8 @@ final class AppState: ObservableObject {
 
     func acceptTodaySession() {
         todaySessionAccepted = true
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["healthfit.workout-reminder"])
     }
 
     func forceOriginalPlan() {
