@@ -21,7 +21,7 @@ struct ConnectWatchView: View {
             Theme.bg.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Step 4 of 4")
+                Text("Step 5 of 5")
                     .eyebrow()
                     .padding(.top, 16)
 

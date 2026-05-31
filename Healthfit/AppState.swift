@@ -15,6 +15,52 @@ import SwiftUI
 import AuthenticationServices
 import Security
 import SwiftData
+import WatchConnectivity
+
+// MARK: - WatchConnectivityService
+
+struct WatchWorkoutPayload: Codable {
+    let workoutName: String
+    let workoutMeta: String
+    let exercises: [String]
+    let readinessState: String
+    let readinessScore: Int
+    let readinessLabel: String
+    let kcalTarget: Int
+    let isAdjusted: Bool
+}
+
+@MainActor
+final class WatchConnectivityService: NSObject, ObservableObject {
+
+    @Published var isPaired: Bool = false
+
+    override init() {
+        super.init()
+        guard WCSession.isSupported() else { return }
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+    }
+
+    func send(_ payload: WatchWorkoutPayload) {
+        guard WCSession.default.activationState == .activated,
+              WCSession.default.isPaired else { return }
+        guard let data = try? JSONEncoder().encode(payload),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        try? WCSession.default.updateApplicationContext(dict)
+    }
+}
+
+extension WatchConnectivityService: WCSessionDelegate {
+    nonisolated func session(_ session: WCSession,
+                             activationDidCompleteWith state: WCSessionActivationState,
+                             error: Error?) {
+        let paired = session.isPaired
+        Task { @MainActor in self.isPaired = paired }
+    }
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
+    nonisolated func sessionDidDeactivate(_ session: WCSession) { session.activate() }
+}
 
 // MARK: - AuthService
 
@@ -133,6 +179,47 @@ final class AppState: ObservableObject {
     @Published var daysPerWeek: Int = 4
     @Published var prioritizedDiscipline: String? = nil
     @Published var strengthSplit: StrengthSplit? = nil
+    @Published var dietaryProfile: DietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
+
+    func saveDietaryProfile() { persistToStore() }
+
+    // MARK: Food log — today's entries, keyed by calendar date in UserDefaults
+
+    @Published var todayFoodLog: [FoodEntry] = []
+
+    private var foodLogKey: String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        return "foodLog_\(fmt.string(from: Date()))"
+    }
+
+    func logFood(_ entry: FoodEntry) {
+        todayFoodLog.append(entry)
+        saveFoodLog()
+    }
+
+    func removeFoodEntry(id: UUID) {
+        todayFoodLog.removeAll { $0.id == id }
+        saveFoodLog()
+    }
+
+    func updateFoodEntry(_ updated: FoodEntry) {
+        guard let idx = todayFoodLog.firstIndex(where: { $0.id == updated.id }) else { return }
+        todayFoodLog[idx] = updated
+        saveFoodLog()
+    }
+
+    func loadFoodLog() {
+        guard let data = UserDefaults.standard.data(forKey: foodLogKey),
+              let entries = try? JSONDecoder().decode([FoodEntry].self, from: data)
+        else { return }
+        todayFoodLog = entries
+    }
+
+    private func saveFoodLog() {
+        guard let data = try? JSONEncoder().encode(todayFoodLog) else { return }
+        UserDefaults.standard.set(data, forKey: foodLogKey)
+    }
 
     // MARK: Last plan description — used to re-generate without re-entering text
 
@@ -182,6 +269,7 @@ final class AppState: ObservableObject {
 
     func configure(with context: ModelContext) {
         modelContext = context
+        loadFoodLog()
         loadFromStore()
     }
 
@@ -195,6 +283,7 @@ final class AppState: ObservableObject {
         daysPerWeek = profile.daysPerWeek
         prioritizedDiscipline = profile.prioritizedDiscipline.isEmpty ? nil : profile.prioritizedDiscipline
         strengthSplit = profile.strengthSplit
+        dietaryProfile = profile.dietaryProfile
     }
 
     func saveUserProfile(_ profile: UserProfile) {
@@ -230,6 +319,9 @@ final class AppState: ObservableObject {
         record.daysPerWeek = daysPerWeek
         record.prioritizedDiscipline = prioritizedDiscipline ?? ""
         record.strengthSplitID = strengthSplit?.rawValue ?? ""
+        record.dietaryAllergies = dietaryProfile.allergies
+        record.dietaryPreferences = dietaryProfile.preferences
+        record.dietaryDislikes = dietaryProfile.dislikes
         try? ctx.save()
     }
 
@@ -258,6 +350,9 @@ final class AppState: ObservableObject {
         daysPerWeek = 4
         prioritizedDiscipline = nil
         strengthSplit = nil
+        dietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
+        todayFoodLog = []
+        UserDefaults.standard.removeObject(forKey: foodLogKey)
         lastPlanDescription = ""
         UserDefaults.standard.removeObject(forKey: "lastPlanDescription")
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",
@@ -645,6 +740,25 @@ final class AppState: ObservableObject {
             approach: currentPlan.approach
         )
         needsNewWeekPlan = true
+    }
+
+    // MARK: - Watch sync
+
+    let watchService = WatchConnectivityService()
+
+    func syncToWatch(readiness: ReadinessState, score: Int) {
+        let adj = adjustedTodayWorkout(readiness: readiness)
+        let payload = WatchWorkoutPayload(
+            workoutName: adj.name,
+            workoutMeta: adj.meta,
+            exercises: adj.chips,
+            readinessState: readiness.rawValue,
+            readinessScore: score,
+            readinessLabel: readiness.label,
+            kcalTarget: adj.kcalTarget,
+            isAdjusted: adj.tag == "Adjusted"
+        )
+        watchService.send(payload)
     }
 }
 

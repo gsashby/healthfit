@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */; };
+		2CF82FCAD2F24AD0A8EDB6F8 /* BarcodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A12555CACE403E9CF4586D /* BarcodeScannerView.swift */; };
+		338A14D05FA6470680E01E45 /* DietarySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 715BF772BF2A44E482B62BFD /* DietarySetupView.swift */; };
 		39B20C872FAA3F4A006180A4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 39B20C802FAA3F4A006180A4 /* README.md */; };
 		39B20C892FAA3F4A006180A4 /* ConnectWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C772FAA3F4A006180A4 /* ConnectWatchView.swift */; };
 		39B20C8A2FAA3F4A006180A4 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C792FAA3F4A006180A4 /* OnboardingFlow.swift */; };
@@ -25,8 +28,11 @@
 		39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C752FAA3F4A006180A4 /* MockData.swift */; };
 		39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C662FAA3F4A006180A4 /* FoodView.swift */; };
 		39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */; };
+		5ED342FD7F1E4B2CB4F1CFA5 /* CameraFoodRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */; };
+		60EA23F64D614D67BBEB419C /* OpenFoodFactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74503E72B29B4D4A983D80FB /* OpenFoodFactsService.swift */; };
 		C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */; };
 		DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */; };
+		F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +53,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		05A12555CACE403E9CF4586D /* BarcodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerView.swift; sourceTree = "<group>"; };
+		06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchView.swift; sourceTree = "<group>"; };
+		0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodDatabaseService.swift; sourceTree = "<group>"; };
+		10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFoodRecognizer.swift; sourceTree = "<group>"; };
 		3988680A2FAA395100609127 /* Healthfit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Healthfit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		398868182FAA395300609127 /* HealthfitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthfitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		398868222FAA395300609127 /* HealthfitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthfitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -74,14 +84,35 @@
 		39B20C812FAA3F4A006180A4 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		39B20C822FAA3F4A006180A4 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthFitApp.swift; sourceTree = "<group>"; };
+		39FF0DC72FCBA96900CE8375 /* Healthfit Watch.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = "Healthfit Watch.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		715BF772BF2A44E482B62BFD /* DietarySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DietarySetupView.swift; sourceTree = "<group>"; };
+		74503E72B29B4D4A983D80FB /* OpenFoodFactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFoodFactsService.swift; sourceTree = "<group>"; };
 		A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelService.swift; sourceTree = "<group>"; };
 		EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		39FF0DD02FCBA96900CE8375 /* Exceptions for "Healthfit Watch" folder in "Healthfit Watch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 39FF0DC62FCBA96900CE8375 /* Healthfit Watch */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3988680C2FAA395100609127 /* Healthfit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Healthfit;
+			sourceTree = "<group>";
+		};
+		39FF0DC82FCBA96900CE8375 /* Healthfit Watch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				39FF0DD02FCBA96900CE8375 /* Exceptions for "Healthfit Watch" folder in "Healthfit Watch" target */,
+			);
+			path = "Healthfit Watch";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -98,6 +129,11 @@
 			);
 		};
 		3988681F2FAA395300609127 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		39FF0DC42FCBA96900CE8375 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -128,6 +164,7 @@
 				39B20C812FAA3F4A006180A4 /* Theme.swift */,
 				39B20C832FAA3F4A006180A4 /* Today */,
 				3988680C2FAA395100609127 /* Healthfit */,
+				39FF0DC82FCBA96900CE8375 /* Healthfit Watch */,
 				3988680B2FAA395100609127 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -139,6 +176,7 @@
 				3988680A2FAA395100609127 /* Healthfit.app */,
 				398868182FAA395300609127 /* HealthfitTests.xctest */,
 				398868222FAA395300609127 /* HealthfitUITests.xctest */,
+				39FF0DC72FCBA96900CE8375 /* Healthfit Watch.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -147,6 +185,11 @@
 			isa = PBXGroup;
 			children = (
 				39B20C662FAA3F4A006180A4 /* FoodView.swift */,
+				10016578D07E469AB687BFCE /* CameraFoodRecognizer.swift */,
+				0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */,
+				06C733DDF2E54D0EAE0E38A5 /* FoodSearchView.swift */,
+				74503E72B29B4D4A983D80FB /* OpenFoodFactsService.swift */,
+				05A12555CACE403E9CF4586D /* BarcodeScannerView.swift */,
 			);
 			path = Food;
 			sourceTree = "<group>";
@@ -181,6 +224,7 @@
 			isa = PBXGroup;
 			children = (
 				39B20C772FAA3F4A006180A4 /* ConnectWatchView.swift */,
+				715BF772BF2A44E482B62BFD /* DietarySetupView.swift */,
 				39B20C782FAA3F4A006180A4 /* GoalSetupView.swift */,
 				39B20C792FAA3F4A006180A4 /* OnboardingFlow.swift */,
 				39B20C7A2FAA3F4A006180A4 /* WelcomeView.swift */,
@@ -268,6 +312,24 @@
 			productReference = 398868222FAA395300609127 /* HealthfitUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		39FF0DC62FCBA96900CE8375 /* Healthfit Watch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 39FF0DD12FCBA96900CE8375 /* Build configuration list for PBXNativeTarget "Healthfit Watch" */;
+			buildPhases = (
+				39FF0DC32FCBA96900CE8375 /* Sources */,
+				39FF0DC42FCBA96900CE8375 /* Frameworks */,
+				39FF0DC52FCBA96900CE8375 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				39FF0DC82FCBA96900CE8375 /* Healthfit Watch */,
+			);
+			name = "Healthfit Watch";
+			productName = "Healthfit Watch";
+			productReference = 39FF0DC72FCBA96900CE8375 /* Healthfit Watch.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -294,6 +356,9 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 398868092FAA395100609127;
 					};
+					39FF0DC62FCBA96900CE8375 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 				};
 			};
 			buildConfigurationList = 398868052FAA395100609127 /* Build configuration list for PBXProject "Healthfit" */;
@@ -319,6 +384,7 @@
 				398868092FAA395100609127 /* Healthfit */,
 				398868172FAA395300609127 /* HealthfitTests */,
 				398868212FAA395300609127 /* HealthfitUITests */,
+				39FF0DC62FCBA96900CE8375 /* Healthfit Watch */,
 			);
 		};
 /* End PBXProject section */
@@ -340,6 +406,11 @@
 			files = (
 			);
 		};
+		39FF0DC52FCBA96900CE8375 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -347,6 +418,7 @@
 			isa = PBXSourcesBuildPhase;
 			files = (
 				39B20C892FAA3F4A006180A4 /* ConnectWatchView.swift in Sources */,
+				338A14D05FA6470680E01E45 /* DietarySetupView.swift in Sources */,
 				39B20C8A2FAA3F4A006180A4 /* OnboardingFlow.swift in Sources */,
 				39B20C8B2FAA3F4A006180A4 /* WelcomeView.swift in Sources */,
 				39B20C8E2FAA3F4A006180A4 /* Theme.swift in Sources */,
@@ -363,6 +435,11 @@
 				39B20C9A2FAA3F4A006180A4 /* Models.swift in Sources */,
 				39B20C9C2FAA3F4A006180A4 /* MockData.swift in Sources */,
 				39B20C9D2FAA3F4A006180A4 /* FoodView.swift in Sources */,
+				5ED342FD7F1E4B2CB4F1CFA5 /* CameraFoodRecognizer.swift in Sources */,
+				F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */,
+				161B2834403846AE92C90399 /* FoodSearchView.swift in Sources */,
+				60EA23F64D614D67BBEB419C /* OpenFoodFactsService.swift in Sources */,
+				2CF82FCAD2F24AD0A8EDB6F8 /* BarcodeScannerView.swift in Sources */,
 				C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */,
 				DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */,
 			);
@@ -373,6 +450,11 @@
 			);
 		};
 		3988681E2FAA395300609127 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		39FF0DC32FCBA96900CE8375 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -521,6 +603,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthFit;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSCameraUsageDescription = "HealthFit uses the camera to identify food items for your nutrition log.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HealthFit reads your HRV, sleep, and heart rate to calculate daily readiness and adapt your training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HealthFit saves your completed workouts to Apple Health.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -564,6 +647,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthFit;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSCameraUsageDescription = "HealthFit uses the camera to identify food items for your nutrition log.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HealthFit reads your HRV, sleep, and heart rate to calculate daily readiness and adapt your training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "HealthFit saves your completed workouts to Apple Health.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -681,6 +765,69 @@
 			};
 			name = Release;
 		};
+		39FF0DCE2FCBA96900CE8375 /* Debug configuration for PBXNativeTarget "Healthfit Watch" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PZS7UFCQSQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Healthfit Watch/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Healthfit Watch";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ga.Healthfit-Watch";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Debug;
+		};
+		39FF0DCF2FCBA96900CE8375 /* Release configuration for PBXNativeTarget "Healthfit Watch" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PZS7UFCQSQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Healthfit Watch/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Healthfit Watch";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "ga.Healthfit-Watch";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -713,6 +860,14 @@
 			buildConfigurations = (
 				398868332FAA395300609127 /* Debug configuration for PBXNativeTarget "HealthfitUITests" */,
 				398868342FAA395300609127 /* Release configuration for PBXNativeTarget "HealthfitUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		39FF0DD12FCBA96900CE8375 /* Build configuration list for PBXNativeTarget "Healthfit Watch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				39FF0DCE2FCBA96900CE8375 /* Debug configuration for PBXNativeTarget "Healthfit Watch" */,
+				39FF0DCF2FCBA96900CE8375 /* Release configuration for PBXNativeTarget "Healthfit Watch" */,
 			);
 			defaultConfigurationName = Release;
 		};
