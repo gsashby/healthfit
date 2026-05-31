@@ -1,65 +1,85 @@
-# HealthFit — SwiftUI Prototype
+# HealthFit
 
-An interactive iOS prototype of the adaptive fitness & nutrition coach. Covers the four user-tested flows: **Onboarding**, **Today / Morning Briefing**, **Plan My Week** (input + generated), and **Food / Nutrition**.
+An adaptive iOS fitness and nutrition coach powered by Apple Health, on-device AI, and a full weekly training plan system. All intelligence runs on-device via Apple Foundation Models — no data leaves the device.
 
-This is a prototype, not production code — all data is mocked. HealthKit and HKWorkoutSession integrations are stubbed so the UI can be tested without entitlements.
+## What it does
 
-## Setup (5 minutes)
+- **Today tab** — morning readiness briefing from live HealthKit biometrics (HRV, sleep, resting HR); workout card adjusted for green/yellow/red readiness; AI-personalised reasoning and nutrition nudge; end-of-week summary when the training block rolls over
+- **Plan tab** — AI-generated 7-day training plans from free-text input; split-aware exercise chips (Full body / PPL / Upper-lower); per-set weight logging, RIR ratings, warmup sets; readiness-driven intensity adjustment; multi-week block progression
+- **Eat tab** — food search via USDA database, barcode scanning (Open Food Facts), and camera-based Vision classification; real macro tracking vs plan-derived targets; allergen warnings from dietary profile
+- **Coach tab** — streaming AI chat with persistent conversation history and plan/readiness context injection
+- **Watch companion** — today's workout and readiness score pushed via WatchConnectivity
 
-1. Open Xcode (16+ recommended).
-2. **File → New → Project → iOS → App**.
-   - Product Name: `HealthFit`
-   - Interface: **SwiftUI**
-   - Language: **Swift**
-   - Storage: **None**
-3. Close the new project's auto-created `ContentView.swift` and `HealthFitApp.swift`.
-4. In Finder, drag every `.swift` file from this folder (and its subfolders) into the Xcode project navigator. When prompted, **check "Copy items if needed"** and add to the `HealthFit` target.
-5. Build & run on the iPhone 15 simulator. iOS 17+ deployment target.
+## Requirements
+
+- Xcode 16+
+- iOS 18.1+ deployment target
+- iPhone 15 Pro or later for Apple Intelligence features (all features degrade gracefully without it)
+
+## Quick start
+
+1. Clone the repo and open `Healthfit.xcodeproj` in Xcode
+2. Select your development team under **Signing & Capabilities**
+3. Build and run on a device or the iPhone 15 simulator
+4. On first launch, complete the five-step onboarding (Welcome → Sign up → Profile → Dietary → Training goals → Connect Watch)
+
+**Apple Intelligence** (plan generation, personalised briefing, coach nudges) requires an iPhone 15 Pro or later running iOS 18.1+. On other devices the app falls back to split-appropriate mock plans and rule-based text throughout.
+
+**HealthKit** (live readiness scoring) requires an Apple Watch paired to the device. Without it the app shows a demo readiness score with a toggle in the Today toolbar.
+
+**Camera / barcode** require a physical device for full functionality; the simulator falls back to the photo library for camera and shows a static scanner UI for barcodes.
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [`Documents/roadmap.md`](Documents/roadmap.md) | Phase-by-phase feature status; what's done, what's next |
+| [`Documents/architecture.md`](Documents/architecture.md) | File structure, data flow, AppState API, persistence, AI architecture |
+| [`Documents/api-reference.md`](Documents/api-reference.md) | External APIs, permissions, entitlements, rate limits |
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| UI | SwiftUI |
+| State | `ObservableObject` + `@EnvironmentObject` |
+| Persistence | SwiftData (`PersistedProfile`) + UserDefaults (food log, flags) |
+| On-device AI | Apple Foundation Models (`FoundationModels` framework) |
+| Health data | HealthKit + `HKHealthStore` |
+| Image recognition | Vision (`VNClassifyImageRequest`) |
+| Barcode scanning | VisionKit (`DataScannerViewController`) |
+| Watch | WatchConnectivity + watchOS companion target |
+| Food database | USDA FoodData Central API + Open Food Facts API |
+| Camera | `UIImagePickerController` / `UIViewControllerRepresentable` |
 
 ## Project layout
 
 ```
-HealthFitPrototype/
-├── README.md                  ← you are here
-├── HealthFitApp.swift         App entry point
-├── ContentView.swift          Root: routes to onboarding or main tab view
-├── AppState.swift             ObservableObject: user, plan, readiness, demo controls
-├── Theme.swift                Colors, typography, common modifiers
-├── Models.swift               User, Goal, Plan, Day, Workout, Readiness, Food
-├── MockData.swift             All simulated HRV/sleep/plans/foods
-├── Components.swift           Reusable: PrimaryButton, SecondaryButton, Chip, Pill
-├── MainTabView.swift          Bottom tab container
-├── Onboarding/
-│   ├── OnboardingFlow.swift
-│   ├── WelcomeView.swift
-│   ├── GoalSetupView.swift
-│   └── ConnectWatchView.swift
-├── Today/
-│   └── TodayView.swift        Morning briefing
-├── Plan/
-│   ├── PlanView.swift         Container, switches input/output
-│   ├── PlanInputView.swift
-│   └── PlanGeneratedView.swift
-└── Food/
-    └── FoodView.swift         Macros + meals + photo-log mock
+Healthfit/
+├── AppState.swift              Central state + AuthService + WatchConnectivityService
+├── FoundationModelService.swift All on-device AI calls
+├── ReadinessService.swift      HealthKit → readiness score
+├── Models.swift                All data models + SwiftData @Model
+├── MockData.swift              Split-aware fallback plans
+├── Components.swift            Reusable UI components
+├── Theme.swift                 Design system
+├── MainTabView.swift           Tab container + CoachView + SettingsView
+├── Onboarding/                 5-step onboarding flow
+├── Today/                      Morning briefing + workout session
+├── Plan/                       Plan input, generated view, day cards
+├── Food/                       Food log, USDA search, camera, barcode
+├── HealthfitWatch/             watchOS companion app
+└── Documents/                  Project documentation
 ```
 
-## Demo controls
+## Key design decisions
 
-The prototype has a hidden demo bar — pull down on the Today view to expose Green / Caution / Red mood toggles. The Plan tab has Input / Generated states accessible from a segmented control. Onboarding can be re-triggered from the Coach tab placeholder (long-press Reset).
+**Single AppState** — all mutable state lives in one `@MainActor ObservableObject` injected at the root. Views read from it; no separate ViewModels. This keeps the data flow predictable and makes the readiness → workout → nutrition chain easy to trace.
 
-## What's mocked vs what's real
+**Split-aware exercise chips** — `liftChips(sessionName:)` checks `strengthSplit` first, so exercises always match the user's chosen split regardless of what the AI names the sessions. The AI prompt also receives split-specific naming instructions to keep the plan view consistent.
 
-| Surface | Status |
-|---|---|
-| UI / navigation | Real SwiftUI |
-| HRV, sleep, RHR | Mocked in `MockData.swift` |
-| Plan generation | Static templates keyed by goal in `MockData.swift` |
-| Food database | Sample list in `MockData.swift` |
-| HealthKit | Not wired — see `// TODO: HealthKit` in `AppState.swift` |
-| Apple Watch app | Not built — phone-only for v1 of the prototype |
-| Backend | None — fully on-device |
+**Sequential FM calls** — Foundation Models cannot handle concurrent `LanguageModelSession` instances. The three nudge calls in `TodayView.task` (reasoning enhancement, nutrition nudge, week summary) run sequentially to prevent deadlock.
 
-## Next steps after testing
+**Date-keyed food log** — `todayFoodLog` is stored in UserDefaults under `foodLog_yyyy-MM-dd`. The key changes at midnight, so yesterday's log is never loaded. No explicit cleanup is needed.
 
-If feedback is positive, the highest-leverage swaps are: (1) wire `HKHealthStore` queries for HRV/sleep so readiness reflects real overnight data, and (2) replace the static plan templates with a server-side generator that the input view calls.
+**No backend** — every feature works entirely on-device. USDA and Open Food Facts are the only network calls.
