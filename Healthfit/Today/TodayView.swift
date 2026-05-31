@@ -102,6 +102,11 @@ struct TodayView: View {
             if appState.watchConnected {
                 await readinessService.fetchReadiness()
             }
+            // Push today's workout to the Watch after any readiness update.
+            appState.syncToWatch(
+                readiness: activeReadiness,
+                score: readinessService.latestData?.score ?? 0
+            )
             guard fmService.isAvailable else { return }
 
             // Foundation Models cannot handle concurrent sessions — run sequentially.
