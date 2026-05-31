@@ -48,7 +48,11 @@ final class ReadinessService: ObservableObject {
         return s
     }()
 
-    static let shareTypes: Set<HKSampleType> = [HKObjectType.workoutType()]
+    static let shareTypes: Set<HKSampleType> = [
+        HKObjectType.workoutType(),
+        HKQuantityType(.activeEnergyBurned),
+        HKQuantityType(.distanceWalkingRunning),
+    ]
 
     // MARK: - Authorization
 
@@ -89,7 +93,6 @@ final class ReadinessService: ObservableObject {
             sleep: sleepResult
         )
         latestData = data
-        await scheduleMorningNotification(data: data)
     }
 
     // MARK: - HealthKit queries
@@ -329,8 +332,12 @@ final class ReadinessService: ObservableObject {
             .requestAuthorization(options: [.alert, .sound, .badge])
     }
 
-    private func scheduleMorningNotification(data: ReadinessData) async {
+    // MARK: - 6.1 Morning briefing notification
+
+    func scheduleMorningNotification(data: ReadinessData, hour: Int = 7, enabled: Bool = true) async {
         let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["healthfit.morning-readiness"])
+        guard enabled else { return }
         let settings = await center.notificationSettings()
         guard settings.authorizationStatus == .authorized else { return }
 
@@ -340,11 +347,73 @@ final class ReadinessService: ObservableObject {
         content.sound = .default
 
         var components = DateComponents()
-        components.hour = 7; components.minute = 0
+        components.hour = hour; components.minute = 0
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(identifier: "healthfit.morning-readiness",
                                             content: content, trigger: trigger)
-        center.removePendingNotificationRequests(withIdentifiers: ["healthfit.morning-readiness"])
+        try? await center.add(request)
+    }
+
+    // MARK: - 6.2 Workout reminder notification
+
+    func scheduleWorkoutReminder(
+        hour: Int, minute: Int,
+        sessionName: String,
+        enabled: Bool
+    ) async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["healthfit.workout-reminder"])
+        guard enabled else { return }
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized else { return }
+
+        // Fire 30 minutes before the preferred workout time
+        let totalMinutes = hour * 60 + minute - 30
+        let remindHour   = ((totalMinutes / 60) % 24 + 24) % 24
+        let remindMinute = ((totalMinutes % 60) + 60) % 60
+
+        let content = UNMutableNotificationContent()
+        content.title = "Workout in 30 minutes"
+        content.body  = "\(sessionName) — time to prep and warm up."
+        content.sound = .default
+
+        var components = DateComponents()
+        components.hour = remindHour; components.minute = remindMinute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        let request = UNNotificationRequest(identifier: "healthfit.workout-reminder",
+                                            content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
+    // MARK: - 6.3 Nutrition nudge notification
+
+    func scheduleNutritionNudge(sessionKind: String, enabled: Bool) async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["healthfit.nutrition-nudge"])
+        guard enabled else { return }
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized else { return }
+
+        let body: String
+        switch sessionKind {
+        case "strength training":
+            body = "It's a lift day — have you hit your protein target yet? Check the Eat tab."
+        case "running":
+            body = "Running today? Make sure you're loading up on carbs. Tap to check your macros."
+        default:
+            body = "How's your nutrition tracking today? Check your macro progress."
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Midday fuel check"
+        content.body  = body
+        content.sound = .default
+
+        var components = DateComponents()
+        components.hour = 12; components.minute = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        let request = UNNotificationRequest(identifier: "healthfit.nutrition-nudge",
+                                            content: content, trigger: trigger)
         try? await center.add(request)
     }
 
@@ -382,21 +451,36 @@ final class ReadinessService: ObservableObject {
 
     func saveWorkout(activityType: HKWorkoutActivityType,
                      start: Date, end: Date,
-                     energyKcal: Double? = nil) async throws {
+                     energyKcal: Double? = nil,
+                     distanceMeters: Double? = nil) async throws {
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
 
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
         try await builder.beginCollection(at: start)
 
-        if let energy = energyKcal {
-            let qty = HKQuantity(unit: .kilocalorie(), doubleValue: energy)
-            let sample = HKQuantitySample(
+        // Collect samples — use try? so a permission gap doesn't abort the workout save.
+        var samples: [HKQuantitySample] = []
+
+        if let energy = energyKcal, energy > 0 {
+            samples.append(HKQuantitySample(
                 type: HKQuantityType(.activeEnergyBurned),
-                quantity: qty,
+                quantity: HKQuantity(unit: .kilocalorie(), doubleValue: energy),
                 start: start, end: end
-            )
-            try await builder.addSamples([sample])
+            ))
+        }
+
+        if let distance = distanceMeters, distance > 0,
+           activityType == .running || activityType == .walking {
+            samples.append(HKQuantitySample(
+                type: HKQuantityType(.distanceWalkingRunning),
+                quantity: HKQuantity(unit: .meter(), doubleValue: distance),
+                start: start, end: end
+            ))
+        }
+
+        if !samples.isEmpty {
+            try? await builder.addSamples(samples)
         }
 
         try await builder.endCollection(at: end)

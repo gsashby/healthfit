@@ -107,6 +107,36 @@ struct TodayView: View {
                 readiness: activeReadiness,
                 score: readinessService.latestData?.score ?? 0
             )
+
+            // MARK: Phase 6 — schedule notifications
+
+            // 6.1 Morning briefing (uses fresh readiness data if available)
+            if let data = readinessService.latestData {
+                await readinessService.scheduleMorningNotification(
+                    data: data, hour: 7, enabled: appState.notifyMorning
+                )
+            }
+
+            // 6.2 Workout reminder — 30 min before preferred time
+            let todaySession = appState.currentPlan.days
+                .first(where: { $0.isToday })?
+                .sessions.first(where: { $0.kind == .lift || $0.kind == .run })
+            await readinessService.scheduleWorkoutReminder(
+                hour: appState.preferredWorkoutHour,
+                minute: appState.preferredWorkoutMinute,
+                sessionName: todaySession?.name ?? "Today's workout",
+                enabled: appState.notifyWorkout && !appState.todaySessionAccepted
+            )
+
+            // 6.3 Nutrition nudge at noon
+            let todayKind = todaySession?.kind
+            let sessionKind = todayKind == .lift ? "strength training"
+                            : todayKind == .run  ? "running" : "rest"
+            await readinessService.scheduleNutritionNudge(
+                sessionKind: sessionKind,
+                enabled: appState.notifyNutrition
+            )
+
             guard fmService.isAvailable else { return }
 
             // Foundation Models cannot handle concurrent sessions — run sequentially.
@@ -120,7 +150,7 @@ struct TodayView: View {
             // 2. Nutrition nudge based on today's logged meals vs targets.
             let kcalLogged    = appState.todayFoodLog.reduce(0) { $0 + $1.kcal }
             let proteinLogged = appState.todayFoodLog.reduce(0) { $0 + $1.macros.proteinG }
-            let todayKind     = appState.currentPlan.days
+            let nudgeKind = appState.currentPlan.days
                 .first(where: { $0.isToday })?
                 .sessions.first(where: { $0.kind == .lift || $0.kind == .run })?
                 .kind
@@ -129,8 +159,8 @@ struct TodayView: View {
                 kcalTarget: snapshot.kcalTarget,
                 proteinLoggedG: proteinLogged,
                 proteinTargetG: snapshot.macros.proteinG,
-                sessionKind: todayKind == .lift ? "strength training"
-                           : todayKind == .run  ? "running" : "rest / recovery",
+                sessionKind: nudgeKind == .lift ? "strength training"
+                           : nudgeKind == .run  ? "running" : "rest / recovery",
                 userName: name
             )
             if !n.isEmpty { coachNudge = n }
@@ -862,6 +892,12 @@ struct WorkoutSessionView: View {
                     .font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.blue)
                     .textCase(.uppercase).tracking(0.5)
                 Text(ex.name).font(.system(size: 19, weight: .bold)).foregroundColor(Theme.text)
+                // Show a hint when weights are pre-filled from history and no sets logged yet
+                if ex.completedWorkingCount == 0,
+                   let firstWeight = ex.workingSets.first?.weightLbs, firstWeight > 0 {
+                    Label("Starting weight from last session", systemImage: "clock.arrow.circlepath")
+                        .font(.system(size: 11)).foregroundColor(Theme.blue)
+                }
             }
 
             // Exercise description / cue
@@ -1289,7 +1325,11 @@ struct WorkoutSessionView: View {
             guard !name.isEmpty else { return nil }
             let repsStr = String(chip[xr.upperBound...]).trimmingCharacters(in: .whitespaces)
             let defaultReps = Int(repsStr) ?? 8
-            let sets = (0..<setCount).map { _ in WorkoutSet(targetReps: repsStr, completedReps: defaultReps) }
+            // Pre-populate weight from the last session's history-derived suggestion.
+            let suggested = appState.suggestedWeight(for: name, targetRepsStr: repsStr) ?? 0
+            let sets = (0..<setCount).map { _ in
+                WorkoutSet(targetReps: repsStr, weightLbs: suggested, completedReps: defaultReps)
+            }
             return WorkoutExercise(name: name, description: exerciseCue(for: name, reps: repsStr), sets: sets)
         }
     }
@@ -1364,6 +1404,16 @@ struct WorkoutSessionView: View {
 
     private func finishWorkout() {
         isSaving = true
+
+        // Persist working-set weights so future sessions get suggested starting weights.
+        if isLift {
+            for ex in exercises where !ex.isSkipped {
+                let logged = ex.workingSets.filter { $0.isLogged && !$0.isSkipped && $0.weightLbs > 0 }
+                guard !logged.isEmpty else { continue }
+                appState.logExercise(ex.name, sets: logged.map { (weight: $0.weightLbs, reps: $0.completedReps) })
+            }
+        }
+
         let end = Date()
         let activityType: HKWorkoutActivityType
         switch session.kind {
@@ -1374,10 +1424,25 @@ struct WorkoutSessionView: View {
         }
         let met: Double
         switch session.kind { case .lift: met = 5; case .run: met = 9; case .yoga: met = 2.5; case .rest: met = 3 }
-        let kcal = met * max(appState.user.weightLb, 100) * 0.453592 * Double(elapsed) / 3600
+        let bodyKg = max(appState.user.weightLb, 100) * 0.453592
+        let hours   = Double(elapsed) / 3600
+        let kcal    = met * bodyKg * hours
+
+        // Estimated distance for runs/walks: use a pace appropriate to the readiness state.
+        // No GPS is available, so this is MET-derived rather than tracked.
+        let distanceMeters: Double? = {
+            guard session.kind == .run || session.kind == .rest else { return nil }
+            let speedMs: Double = session.kind == .run ? 2.7 : 1.3  // ~9.7 km/h run, ~4.7 km/h walk
+            return speedMs * Double(elapsed)
+        }()
+
         Task {
-            try? await readinessService.saveWorkout(activityType: activityType, start: startDate, end: end,
-                                                     energyKcal: kcal > 1 ? kcal : nil)
+            try? await readinessService.saveWorkout(
+                activityType: activityType,
+                start: startDate, end: end,
+                energyKcal: kcal > 1 ? kcal : nil,
+                distanceMeters: distanceMeters
+            )
             appState.acceptTodaySession()
             dismiss()
         }
@@ -1464,10 +1529,25 @@ private struct WorkoutSummaryView: View {
 
     private func exerciseBreakdown(ex: WorkoutExercise) -> some View {
         let loggedSets = ex.sets.filter(\.isLogged)
+        // Epley 1RM from the best working set in this session
+        let oneRM: Double? = {
+            let best = ex.workingSets
+                .filter { $0.isLogged && !$0.isSkipped && $0.weightLbs > 0 && $0.completedReps > 0 }
+                .map { $0.weightLbs * (1 + Double($0.completedReps) / 30) }
+                .max()
+            return (best ?? 0) > 0 ? best : nil
+        }()
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(ex.name).font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(ex.isSkipped ? Theme.textMuted : Theme.text)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ex.name).font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(ex.isSkipped ? Theme.textMuted : Theme.text)
+                    if let rm = oneRM, !ex.isSkipped {
+                        Text("Est. 1RM: \(Int(rm.rounded())) lbs")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Theme.blue)
+                    }
+                }
                 Spacer()
                 if ex.isSkipped {
                     Text("Skipped").font(.system(size: 12)).foregroundColor(Theme.textMuted)

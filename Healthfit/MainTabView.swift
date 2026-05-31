@@ -11,18 +11,22 @@ struct MainTabView: View {
     @EnvironmentObject var fmService: FoundationModelService
 
     var body: some View {
-        TabView {
+        TabView(selection: $appState.selectedTab) {
             NavigationStack { TodayView() }
                 .tabItem { Label("Today", systemImage: "sun.max.fill") }
+                .tag(0)
 
             NavigationStack { PlanView() }
                 .tabItem { Label("Plan",  systemImage: "calendar") }
+                .tag(1)
 
             NavigationStack { FoodView() }
                 .tabItem { Label("Eat",   systemImage: "leaf.fill") }
+                .tag(2)
 
             NavigationStack { CoachView() }
                 .tabItem { Label("Coach", systemImage: "bubble.left.and.bubble.right.fill") }
+                .tag(3)
         }
         .tint(Theme.green)
     }
@@ -230,6 +234,10 @@ struct SettingsView: View {
     @State private var showDeleteConfirm = false
     @State private var selectedAllergies: Set<String> = []
     @State private var selectedPreferences: Set<String> = []
+    @State private var notifyMorning = true
+    @State private var notifyWorkout = true
+    @State private var notifyNutrition = true
+    @State private var workoutTime = Date()
     private let sexOptions = ["Male", "Female", "Other"]
 
     private static let allergyOptions = [
@@ -282,6 +290,13 @@ struct SettingsView: View {
                                 preferences: Array(selectedPreferences).sorted(),
                                 dislikes: appState.dietaryProfile.dislikes)
                             appState.saveDietaryProfile()
+                            let wc = Calendar.current.dateComponents([.hour, .minute], from: workoutTime)
+                            appState.notifyMorning   = notifyMorning
+                            appState.notifyWorkout   = notifyWorkout
+                            appState.notifyNutrition = notifyNutrition
+                            appState.preferredWorkoutHour   = wc.hour   ?? 7
+                            appState.preferredWorkoutMinute = wc.minute ?? 0
+                            appState.saveNotificationPreferences()
                             dismiss()
                         }
 
@@ -316,6 +331,35 @@ struct SettingsView: View {
                                 }
                             }
                         }
+
+                        sectionLabel("Notifications").padding(.top, 8)
+                        VStack(spacing: 0) {
+                            notifRow(title: "Morning briefing",
+                                     subtitle: "Readiness score at 7:00 AM",
+                                     binding: $notifyMorning)
+                            Divider().padding(.leading, 16)
+                            notifRow(title: "Workout reminder",
+                                     subtitle: "30 min before your workout",
+                                     binding: $notifyWorkout)
+                            if notifyWorkout {
+                                Divider().padding(.leading, 16)
+                                HStack {
+                                    Text("Workout time")
+                                        .font(.system(size: 15)).foregroundColor(Theme.text)
+                                    Spacer()
+                                    DatePicker("", selection: $workoutTime,
+                                               displayedComponents: .hourAndMinute)
+                                        .labelsHidden()
+                                }
+                                .padding(.horizontal, 16).padding(.vertical, 10)
+                            }
+                            Divider().padding(.leading, 16)
+                            notifRow(title: "Nutrition check",
+                                     subtitle: "Midday reminder when behind on macros",
+                                     binding: $notifyNutrition)
+                        }
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                         sectionLabel("Account").padding(.top, 8)
                         Button {
@@ -355,10 +399,28 @@ struct SettingsView: View {
             goalWeight = appState.user.goalWeightLb == 0 ? "" : "\(Int(appState.user.goalWeightLb))"
             selectedAllergies = Set(appState.dietaryProfile.allergies)
             selectedPreferences = Set(appState.dietaryProfile.preferences)
+            notifyMorning   = appState.notifyMorning
+            notifyWorkout   = appState.notifyWorkout
+            notifyNutrition = appState.notifyNutrition
+            var wc = DateComponents()
+            wc.hour = appState.preferredWorkoutHour
+            wc.minute = appState.preferredWorkoutMinute
+            workoutTime = Calendar.current.date(from: wc) ?? Date()
         }
     }
 
     private func sectionLabel(_ t: String) -> some View {
         Text(t).font(.system(size: 18, weight: .bold)).foregroundColor(Theme.text)
+    }
+
+    private func notifRow(title: String, subtitle: String, binding: Binding<Bool>) -> some View {
+        Toggle(isOn: binding) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 15, weight: .semibold)).foregroundColor(Theme.text)
+                Text(subtitle).font(.system(size: 12)).foregroundColor(Theme.textMuted)
+            }
+        }
+        .tint(Theme.green)
+        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 }

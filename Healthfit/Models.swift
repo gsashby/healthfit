@@ -291,6 +291,27 @@ struct ParsedInput: Identifiable {
     let value: String
 }
 
+// MARK: - Lift history
+
+struct LoggedSet: Codable {
+    let weightLbs: Double
+    let reps: Int
+}
+
+struct ExerciseRecord: Codable {
+    let date: Date
+    let sets: [LoggedSet]   // working sets only (warmups excluded)
+
+    /// Epley formula: 1RM = weight × (1 + reps / 30).
+    /// Uses the best set (highest predicted 1RM) in the session.
+    var estimatedOneRepMax: Double {
+        sets.compactMap { s -> Double? in
+            guard s.reps > 0, s.weightLbs > 0 else { return nil }
+            return s.weightLbs * (1 + Double(s.reps) / 30)
+        }.max() ?? 0
+    }
+}
+
 // MARK: - Food / Nutrition
 
 struct FoodEntry: Identifiable, Codable {
