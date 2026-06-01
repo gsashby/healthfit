@@ -16,6 +16,16 @@ struct WatchRootView: View {
                     Divider()
                     workoutSummary(data)
                     NavigationLink {
+                        WatchActiveWorkoutView(workoutName: data.workoutName)
+                    } label: {
+                        Label("Start", systemImage: "play.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+
+                    NavigationLink {
                         WatchWorkoutDetailView(
                             workoutName: data.workoutName,
                             exercises: data.exercises
@@ -25,7 +35,7 @@ struct WatchRootView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .tint(accentColor(data.readinessState))
                 }
                 .padding(.horizontal, 4)
