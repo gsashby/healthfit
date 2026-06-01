@@ -27,7 +27,7 @@ struct DietarySetupView: View {
             Theme.bg.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Step 3 of 5").eyebrow().padding(.top, 16)
+                    Text("Step 4 of 6").eyebrow().padding(.top, 16)
 
                     Text("Any dietary needs?")
                         .font(.system(size: 28, weight: .bold))

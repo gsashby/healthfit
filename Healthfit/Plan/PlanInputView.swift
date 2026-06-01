@@ -181,7 +181,11 @@ struct PlanInputView: View {
             appState.regeneratePlan()
             return
         }
+        // Persist just the user's typed text — the goal-context prefix is
+        // recomputed at generation time so phrases like "X weeks out"
+        // stay current on every regenerate.
         appState.saveLastPlanDescription(description)
+        let prompt = appState.augmentedPlanDescription(description)
         isGenerating = true
         Task {
             do {
@@ -191,7 +195,7 @@ struct PlanInputView: View {
                 }
                 isParsing = false
                 let generated = try await fmService.generateWeekPlan(
-                    userDescription: description,
+                    userDescription: prompt,
                     profile: appState.user,
                     goals: appState.selectedGoals,
                     trainingType: appState.trainingType,

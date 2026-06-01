@@ -21,6 +21,40 @@ struct UserProfile: Codable {
 
 // MARK: - Goals
 
+/// The user's *primary* motivation — captured up front during onboarding so
+/// every downstream feature (plan generation, readiness scoring, nutrition)
+/// can lean on a single "why". Distinct from `FitnessGoal`, which describes
+/// the *style* of training the user is in the mood for.
+enum PrimaryFitnessGoal: String, Codable, CaseIterable, Identifiable {
+    case eventTraining   = "Training for an event"
+    case longevity       = "Long-term health & longevity"
+    case vo2max          = "Increase VO2 max"
+    case buildMuscle     = "Build & sustain muscle"
+    case generalFitness  = "General fitness"
+
+    var id: String { rawValue }
+
+    var emoji: String {
+        switch self {
+        case .eventTraining:  return "🏁"
+        case .longevity:      return "❤️"
+        case .vo2max:         return "🫁"
+        case .buildMuscle:    return "🏋️"
+        case .generalFitness: return "💪"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .eventTraining:  return "Race, triathlon, or competition on the horizon"
+        case .longevity:      return "Health-span first — train to age well"
+        case .vo2max:         return "Cardiovascular performance and aerobic capacity"
+        case .buildMuscle:    return "Progressive strength and muscle retention"
+        case .generalFitness: return "Stay in shape with balanced training"
+        }
+    }
+}
+
 enum FitnessGoal: String, Codable, CaseIterable, Identifiable {
     case getStrong       = "Get strong"
     case race            = "Train for a race"
@@ -373,6 +407,12 @@ final class PersistedProfile {
     var dietaryAllergies: [String] = []
     var dietaryPreferences: [String] = []
     var dietaryDislikes: [String] = []
+    // Primary goal captured at the top of onboarding (step 2). Defaulted to
+    // empty/false so existing stores migrate cleanly without a schema bump.
+    var primaryGoalID: String = ""
+    var targetEventName: String = ""
+    var targetEventDate: Date? = nil
+    var wantsPeakPlan: Bool = true
 
     init() {}
 
@@ -392,6 +432,10 @@ final class PersistedProfile {
 
     var strengthSplit: StrengthSplit? {
         StrengthSplit(rawValue: strengthSplitID)
+    }
+
+    var primaryGoal: PrimaryFitnessGoal? {
+        PrimaryFitnessGoal(rawValue: primaryGoalID)
     }
 
     var dietaryProfile: DietaryProfile {

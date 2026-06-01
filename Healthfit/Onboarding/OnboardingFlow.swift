@@ -1,12 +1,13 @@
 //
 //  OnboardingFlow.swift
-//  Six-step onboarding:
+//  Seven-screen onboarding (six numbered steps + a welcome screen):
 //   0: WelcomeView          — no step badge
-//   1: SignUpView           — "Step 1 of 5"  (skipped if already authenticated)
-//   2: ProfileSetupView     — "Step 2 of 5"
-//   3: DietarySetupView     — "Step 3 of 5"
-//   4: GoalSetupView        — "Step 4 of 5"
-//   5: ConnectWatchView     — "Step 5 of 5"
+//   1: SignUpView           — "Step 1 of 6"  (skipped if already authenticated)
+//   2: PrimaryGoalView      — "Step 2 of 6"  (the "why" — comes BEFORE mechanics)
+//   3: ProfileSetupView     — "Step 3 of 6"
+//   4: DietarySetupView     — "Step 4 of 6"
+//   5: GoalSetupView        — "Step 5 of 6"  (training type, days, split)
+//   6: ConnectWatchView     — "Step 6 of 6"
 //
 
 import SwiftUI
@@ -22,15 +23,17 @@ struct OnboardingFlow: View {
             switch step {
             case 0: WelcomeView(next: advance)
             case 1: SignUpView(next: advance)
-            case 2: ProfileSetupView(next: advance)
-            case 3: DietarySetupView(next: advance)
-            case 4: GoalSetupView(next: advance)
+            case 2: PrimaryGoalView(next: advance)
+            case 3: ProfileSetupView(next: advance)
+            case 4: DietarySetupView(next: advance)
+            case 5: GoalSetupView(next: advance)
             default: ConnectWatchView(next: finish)
             }
         }
         .animation(.easeOut(duration: 0.25), value: step)
         .onAppear {
-            // If already authenticated (returning user), skip sign-up step
+            // If already authenticated (returning user), skip the sign-up step
+            // and land directly on the primary-goal screen.
             if authService.isAuthenticated && step == 0 {
                 step = 2
             }
@@ -65,7 +68,7 @@ struct SignUpView: View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 0) {
-                Text("Step 1 of 5").eyebrow().padding(.top, 16)
+                Text("Step 1 of 6").eyebrow().padding(.top, 16)
                 Text("Create your account")
                     .font(.system(size: 28, weight: .bold)).foregroundColor(Theme.text).padding(.top, 6)
                 Text("Your data stays on your device.")
@@ -138,7 +141,7 @@ struct ProfileSetupView: View {
             Theme.bg.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Step 2 of 5").eyebrow().padding(.top, 16)
+                    Text("Step 3 of 6").eyebrow().padding(.top, 16)
                     Text("Tell us about you")
                         .font(.system(size: 28, weight: .bold)).foregroundColor(Theme.text).padding(.top, 6)
                     Text("Used to personalise your plan, readiness scoring, and nutrition targets.")

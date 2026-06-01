@@ -66,6 +66,7 @@ struct TodayView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     header
+                    primaryGoalChip
                     if appState.needsNewWeekPlan { weekSummaryCard }
                     watchDataBanner
                     readinessCard
@@ -238,6 +239,48 @@ struct TodayView: View {
         }
         .padding(.top, 8)
         .padding(.bottom, 6)
+    }
+
+    // MARK: Primary goal chip — surfaces the user's "why" near the top
+
+    @ViewBuilder
+    private var primaryGoalChip: some View {
+        if let label = primaryGoalChipLabel {
+            HStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.card2)
+            .clipShape(Capsule())
+        }
+    }
+
+    /// Returns nil when no primary goal has been set so the chip is hidden
+    /// for legacy users who haven't been through the new onboarding.
+    private var primaryGoalChipLabel: String? {
+        guard let goal = appState.primaryGoal else { return nil }
+        switch goal {
+        case .eventTraining:
+            let name = appState.targetEventName.trimmingCharacters(in: .whitespaces)
+            let display = name.isEmpty ? "Event training" : name
+            guard let date = appState.targetEventDate else {
+                return "\(goal.emoji) \(display)"
+            }
+            let weeks = max(0, Calendar.current.dateComponents([.weekOfYear], from: Date(), to: date).weekOfYear ?? 0)
+            return "\(goal.emoji) \(display) · \(weeks) weeks out"
+        case .longevity:
+            return "\(goal.emoji) Health-span focus"
+        case .vo2max:
+            return "\(goal.emoji) VO2 max focus"
+        case .buildMuscle:
+            return "\(goal.emoji) Building muscle"
+        case .generalFitness:
+            return "\(goal.emoji) General fitness"
+        }
     }
 
     // MARK: Readiness hero
