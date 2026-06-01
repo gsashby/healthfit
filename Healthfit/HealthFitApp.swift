@@ -51,6 +51,7 @@ struct HealthFitApp: App {
 
     init() {
         UNUserNotificationCenter.current().delegate = notificationDelegate
+        CrashReporter.configure()
     }
 
     var body: some Scene {

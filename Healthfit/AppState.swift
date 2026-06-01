@@ -314,6 +314,7 @@ final class AppState: ObservableObject {
         todayFoodLog.append(entry)
         saveFoodLog()
         cancelNutritionNudgeIfOnTrack()
+        Analytics.foodLogged(source: "unknown")
     }
 
     private func cancelNutritionNudgeIfOnTrack() {
@@ -471,6 +472,10 @@ final class AppState: ObservableObject {
         hasOnboarded = true
         UserDefaults.standard.set(true, forKey: "hasOnboarded")
         persistToStore()
+        Analytics.onboardingCompleted(
+            trainingType: trainingType?.rawValue,
+            strengthSplit: strengthSplit?.rawValue
+        )
     }
 
     func resetOnboarding() {
@@ -520,10 +525,12 @@ final class AppState: ObservableObject {
     func regeneratePlan() {
         currentPlan = MockData.plan(trainingType: trainingType, strengthSplit: strengthSplit)
         planMode = .generated
+        Analytics.planGenerated(source: "mock_fallback")
     }
 
     /// Converts a Foundation Models GeneratedPlan into a WeekPlan and applies it.
     func applyGeneratedPlan(_ generated: GeneratedPlan) {
+        Analytics.planGenerated(source: "foundation_models")
         let calendar = Calendar.current
         let today = Date()
         // Anchor to the Monday of the current week
