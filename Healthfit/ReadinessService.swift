@@ -200,7 +200,7 @@ final class ReadinessService: ObservableObject {
 
     // MARK: - Score computation
 
-    private func computeReadiness(hrv: Double?, hrvBaseline: Double?,
+    func computeReadiness(hrv: Double?, hrvBaseline: Double?,
                                    rhr: Double?, rhrBaseline: Double?,
                                    sleep: SleepResult?) -> ReadinessData {
         var score = 0

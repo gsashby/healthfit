@@ -788,7 +788,11 @@ struct WorkoutSessionView: View {
             }
         }
         .onReceive(timerPublisher) { _ in elapsed += 1 }
-        .onAppear { if isLift { exercises = buildExercises(from: chips) } }
+        .onAppear {
+            if isLift { exercises = buildExercises(from: chips) }
+            Analytics.workoutStarted(kind: session.kind.rawValue,
+                                     readinessState: readiness.rawValue)
+        }
         .task {
             while !Task.isCancelled {
                 if let hr = await readinessService.fetchCurrentHeartRate() { currentHR = hr }
@@ -1446,6 +1450,11 @@ struct WorkoutSessionView: View {
         }()
 
         Task {
+            Analytics.workoutCompleted(
+                kind: session.kind.rawValue,
+                elapsedSeconds: elapsed,
+                setsLogged: exercises.flatMap(\.sets).filter(\.isLogged).count
+            )
             try? await readinessService.saveWorkout(
                 activityType: activityType,
                 start: startDate, end: end,

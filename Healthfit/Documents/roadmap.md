@@ -181,11 +181,29 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 - Terms of service — pending
 - HealthKit entitlement justification — pending
 
-### 8.3 Quality
-- Unit tests (`HealthfitTests/` stubs exist) — pending
-- UI tests for critical path — pending
-- Crash reporting — pending
-- Analytics — pending
+### 8.3 Quality ✅
+
+**Unit tests** (`HealthfitTests/HealthfitTests.swift`) — 22 tests across 7 suites using Swift Testing:
+- `ExerciseRecord: Epley 1RM` — formula, best-set selection, zero-guard
+- `AppState: weight suggestions` — 1RM → training %, rounding, case-insensitive lookup, recency, minimum weight
+- `AppState: exercise history` — record storage, zero-weight filtering, 20-session cap
+- `ReadinessService: score calculation` — perfect/poor/mixed metrics, nil fallbacks, state thresholds
+- `AppState: macro targets` — green/yellow/red kcal and macro values
+- `AppState: unit conversion` — lbs↔kg roundtrip, suffix, step size
+- `FoodEntry: Codable` — encode/decode roundtrip, array persistence
+- `AppState: food log` — log, remove, update by id
+
+**UI smoke tests** (`HealthfitUITests/HealthfitUITests.swift`) — 8 XCTest methods:
+- App launches without crashing
+- Onboarding or tab bar appears within 5 s
+- All 4 tabs reachable and selectable
+- Today tab shows readiness score (live or DEMO)
+- Eat tab shows macro card
+- Plan tab has segmented control
+
+**Crash reporting** (`CrashReporter.swift`) — no-op scaffold with wiring instructions for Sentry and Firebase Crashlytics; `CrashReporter.configure()` called in `HealthFitApp.init()`
+
+**Analytics** (`Analytics.swift`) — no-op event bus (prints in DEBUG) with wiring instructions for TelemetryDeck and PostHog; 6 events fired: `onboarding_completed`, `plan_generated`, `workout_started`, `workout_completed`, `food_logged`, `coach_message_sent`
 
 ---
 

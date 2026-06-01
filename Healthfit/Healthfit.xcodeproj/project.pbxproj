@@ -15,6 +15,8 @@
 		39B20C8A2FAA3F4A006180A4 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C792FAA3F4A006180A4 /* OnboardingFlow.swift */; };
 		39B20C8B2FAA3F4A006180A4 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C7A2FAA3F4A006180A4 /* WelcomeView.swift */; };
 		39B20C8E2FAA3F4A006180A4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C812FAA3F4A006180A4 /* Theme.swift */; };
+		A85C373E45CF4E66A9B5F256 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D170B7235234CBCA80F0434 /* Analytics.swift */; };
+		036758EEAD3142FBAFA9954B /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC694B7FFD7845CC8FE77B00 /* CrashReporter.swift */; };
 		39B20C902FAA3F4A006180A4 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C632FAA3F4A006180A4 /* AppState.swift */; };
 		39B20C912FAA3F4A006180A4 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C642FAA3F4A006180A4 /* Components.swift */; };
 		39B20C922FAA3F4A006180A4 /* GoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C782FAA3F4A006180A4 /* GoalSetupView.swift */; };
@@ -60,6 +62,8 @@
 		3988680A2FAA395100609127 /* Healthfit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Healthfit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		398868182FAA395300609127 /* HealthfitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthfitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		398868222FAA395300609127 /* HealthfitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HealthfitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D170B7235234CBCA80F0434 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
+		DC694B7FFD7845CC8FE77B00 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
 		39B20C632FAA3F4A006180A4 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		39B20C642FAA3F4A006180A4 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		39B20C652FAA3F4A006180A4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -145,7 +149,9 @@
 			isa = PBXGroup;
 			children = (
 				39B20C9E2FAAB110006180A4 /* HealthFitApp.swift */,
-				39B20C632FAA3F4A006180A4 /* AppState.swift */,
+				8D170B7235234CBCA80F0434 /* Analytics.swift */,
+				DC694B7FFD7845CC8FE77B00 /* CrashReporter.swift */,
+			39B20C632FAA3F4A006180A4 /* AppState.swift */,
 				39B20C642FAA3F4A006180A4 /* Components.swift */,
 				39B20C652FAA3F4A006180A4 /* ContentView.swift */,
 				39B20C672FAA3F4A006180A4 /* Food */,
@@ -422,7 +428,9 @@
 				39B20C8A2FAA3F4A006180A4 /* OnboardingFlow.swift in Sources */,
 				39B20C8B2FAA3F4A006180A4 /* WelcomeView.swift in Sources */,
 				39B20C8E2FAA3F4A006180A4 /* Theme.swift in Sources */,
-				39B20C902FAA3F4A006180A4 /* AppState.swift in Sources */,
+				A85C373E45CF4E66A9B5F256 /* Analytics.swift in Sources */,
+				036758EEAD3142FBAFA9954B /* CrashReporter.swift in Sources */,
+			39B20C902FAA3F4A006180A4 /* AppState.swift in Sources */,
 				39B20C9F2FAAB110006180A4 /* HealthFitApp.swift in Sources */,
 				39B20C912FAA3F4A006180A4 /* Components.swift in Sources */,
 				39B20C922FAA3F4A006180A4 /* GoalSetupView.swift in Sources */,
