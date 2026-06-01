@@ -225,8 +225,11 @@ struct PlanGeneratedView: View {
                 let description = appState.lastPlanDescription.isEmpty
                     ? appState.user.description
                     : appState.lastPlanDescription
+                // Recompute the goal-context prefix at regen time so the
+                // weeks-out countdown stays fresh.
+                let prompt = appState.augmentedPlanDescription(description)
                 let generated = try await fmService.generateWeekPlan(
-                    userDescription: description,
+                    userDescription: prompt,
                     profile: appState.user,
                     goals: appState.selectedGoals,
                     trainingType: appState.trainingType,

@@ -182,6 +182,52 @@ final class AppState: ObservableObject {
     @Published var strengthSplit: StrengthSplit? = nil
     @Published var dietaryProfile: DietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
 
+    // MARK: Primary goal (captured at the top of onboarding — the "why")
+
+    @Published var primaryGoal: PrimaryFitnessGoal? = nil
+    @Published var targetEventName: String = ""
+    @Published var targetEventDate: Date? = nil
+    @Published var wantsPeakPlan: Bool = true
+
+    func savePrimaryGoal() { persistToStore() }
+
+    /// Returns a one-line goal-context prefix to prepend to AI plan prompts.
+    /// Computed fresh each call so "X weeks out" stays current.
+    func goalContextPrefix() -> String {
+        guard let g = primaryGoal else { return "" }
+        switch g {
+        case .eventTraining:
+            let eventName = targetEventName.trimmingCharacters(in: .whitespaces)
+            let label = eventName.isEmpty ? "an upcoming event" : eventName
+            guard let date = targetEventDate else {
+                return "Training for \(label)." +
+                    (wantsPeakPlan ? " Build a peak plan with Base / Build / Peak / Taper phases." : "")
+            }
+            let weeks = max(0, Calendar.current.dateComponents([.weekOfYear], from: Date(), to: date).weekOfYear ?? 0)
+            let fmt = DateFormatter(); fmt.dateStyle = .medium
+            let phasePart = wantsPeakPlan
+                ? " Build a peak plan with Base / Build / Peak / Taper phases."
+                : ""
+            return "Training for \(label) on \(fmt.string(from: date)). \(weeks) weeks out.\(phasePart)"
+        case .longevity:
+            return "Focus on health-span: balanced VO2 max work, progressive strength, and recovery."
+        case .vo2max:
+            return "Prioritize aerobic development — Zone 2 base, interval work, and VO2 max sessions."
+        case .buildMuscle:
+            return "Prioritize progressive overload and muscle retention. Cardio is secondary."
+        case .generalFitness:
+            return "General fitness — keep balanced training across strength and cardio."
+        }
+    }
+
+    /// Combines the goal-context prefix with the user's typed description,
+    /// ready to pass into Foundation Models' `generateWeekPlan`.
+    func augmentedPlanDescription(_ userText: String) -> String {
+        let prefix = goalContextPrefix()
+        if prefix.isEmpty { return userText }
+        return prefix + "\n\n" + userText
+    }
+
     func saveDietaryProfile() { persistToStore() }
 
     // MARK: Lift history — per-exercise weight records and 1RM predictions
@@ -416,6 +462,10 @@ final class AppState: ObservableObject {
         prioritizedDiscipline = profile.prioritizedDiscipline.isEmpty ? nil : profile.prioritizedDiscipline
         strengthSplit = profile.strengthSplit
         dietaryProfile = profile.dietaryProfile
+        primaryGoal = profile.primaryGoal
+        targetEventName = profile.targetEventName
+        targetEventDate = profile.targetEventDate
+        wantsPeakPlan = profile.wantsPeakPlan
     }
 
     func saveUserProfile(_ profile: UserProfile) {
@@ -454,6 +504,10 @@ final class AppState: ObservableObject {
         record.dietaryAllergies = dietaryProfile.allergies
         record.dietaryPreferences = dietaryProfile.preferences
         record.dietaryDislikes = dietaryProfile.dislikes
+        record.primaryGoalID = primaryGoal?.rawValue ?? ""
+        record.targetEventName = targetEventName
+        record.targetEventDate = targetEventDate
+        record.wantsPeakPlan = wantsPeakPlan
         try? ctx.save()
     }
 
@@ -487,6 +541,10 @@ final class AppState: ObservableObject {
         prioritizedDiscipline = nil
         strengthSplit = nil
         dietaryProfile = DietaryProfile(allergies: [], preferences: [], dislikes: [])
+        primaryGoal = nil
+        targetEventName = ""
+        targetEventDate = nil
+        wantsPeakPlan = true
         todayFoodLog = []
         UserDefaults.standard.removeObject(forKey: foodLogKey)
         lastPlanDescription = ""
