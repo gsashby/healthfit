@@ -159,11 +159,11 @@ struct ProfileSetupView: View {
                             }.pickerStyle(.segmented)
                         }
                         #if canImport(UIKit)
-                        ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight, keyboard: .decimalPad)
-                        ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight, keyboard: .decimalPad)
+                        ProfileField(label: "Current weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 84" : "e.g. 185", text: $weight, keyboard: .decimalPad)
+                        ProfileField(label: "Goal weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 75" : "e.g. 165", text: $goalWeight, keyboard: .decimalPad)
                         #else
-                        ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight)
-                        ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight)
+                        ProfileField(label: "Current weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 84" : "e.g. 185", text: $weight)
+                        ProfileField(label: "Goal weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 75" : "e.g. 165", text: $goalWeight)
                         #endif
                     }.padding(.top, 24)
 
@@ -175,8 +175,8 @@ struct ProfileSetupView: View {
                         appState.saveUserProfile(UserProfile(
                             name: name.trimmingCharacters(in: .whitespaces),
                             age: Int(age) ?? 0, sexAtBirth: sex,
-                            weightLb: Double(weight) ?? 0,
-                            goalWeightLb: Double(goalWeight) ?? 0,
+                            weightLb: appState.storedWeightLbs(Double(weight) ?? 0),
+                            goalWeightLb: appState.storedWeightLbs(Double(goalWeight) ?? 0),
                             description: ""))
                         next()
                     }

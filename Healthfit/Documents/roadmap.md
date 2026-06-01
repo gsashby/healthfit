@@ -155,18 +155,17 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 
 ## Phase 7 — Settings & Account Management
 
-### 7.1 Settings Screen (partial ✅)
+### 7.1 Settings Screen ✅
 - Profile editing (name, age, sex, weight, goal weight) ✅
 - Dietary profile editing ✅
-- Units toggle (lbs ↔ kg, miles ↔ km) — **pending**
-- Preferred workout time — **pending**
-- Notification preferences — **pending**
-- HealthKit permissions deep-link — **pending**
+- Preferred workout time + notification preferences ✅
+- **Units toggle** ✅ — "Use metric units" toggle in new Preferences section; weights displayed/entered as kg, volumes as kg; profile weight fields convert on load and save; `±2.5 kg` steps in workout logger when metric
+- **HealthKit permissions deep-link** ✅ — "Manage Health permissions" opens iOS Settings via `UIApplication.openSettingsURLString`
 
-### 7.2 Account Actions (partial ✅)
+### 7.2 Account Actions ✅
 - Sign out ✅
 - Delete account ✅
-- Export my data — **pending**
+- **Export my data** ✅ — "Export my data" button writes a pretty-printed JSON file (`healthfit-export-yyyy-MM-dd.json`) to a temp directory and presents the system share sheet; includes user profile, training preferences, dietary profile, today's food log, and full exercise history
 
 ---
 

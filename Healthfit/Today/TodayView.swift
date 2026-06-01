@@ -649,10 +649,14 @@ private struct WorkoutExercise: Identifiable {
     }
 
     /// Compact weight summary for collapsed display (working sets only).
-    var weightSummary: String {
-        let ws = workingSets.filter(\.isLogged).map { Int($0.weightLbs) }
+    func weightSummary(useMetric: Bool) -> String {
+        let ws = workingSets.filter(\.isLogged).map { s -> String in
+            let v = useMetric ? s.weightLbs / 2.20462 : s.weightLbs
+            return v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+        }
         guard !ws.isEmpty else { return "" }
-        return Set(ws).count == 1 ? "\(ws[0]) lbs" : ws.map { "\($0)" }.joined(separator: "/") + " lbs"
+        let unit = useMetric ? "kg" : "lbs"
+        return Set(ws).count == 1 ? "\(ws[0]) \(unit)" : ws.joined(separator: "/") + " \(unit)"
     }
 
     var repsSummary: String {
@@ -971,7 +975,7 @@ struct WorkoutSessionView: View {
                 Text("WARM").font(.system(size: 9, weight: .bold))
                     .foregroundColor(Theme.orange).padding(.trailing, 4)
             }
-            Text(set.weightLbs > 0 ? "\(Int(set.weightLbs)) lbs" : "BW")
+            Text(set.weightLbs > 0 ? appState.formatWeight(set.weightLbs) : "BW")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(set.isWarmup ? Theme.textMuted : Theme.text)
             Text(" × ").font(.system(size: 13)).foregroundColor(Theme.textMuted)
@@ -1013,13 +1017,13 @@ struct WorkoutSessionView: View {
             .font(.system(size: 12, weight: .semibold))
             .textCase(.uppercase).tracking(0.5)
 
-            // Weight input — ±5 lb buttons + direct numeric keyboard entry
+            // Weight input — ± buttons + direct numeric keyboard entry
             HStack(spacing: 0) {
                 Button {
                     weightFieldFocused = false
                     withAnimation(.spring(response: 0.2)) {
                         exercises[exIdx].sets[setIdx].weightLbs =
-                            max(0, exercises[exIdx].sets[setIdx].weightLbs - 5)
+                            max(0, exercises[exIdx].sets[setIdx].weightLbs - appState.weightStep)
                     }
                 } label: {
                     Image(systemName: "minus.circle.fill").font(.system(size: 38))
@@ -1039,7 +1043,8 @@ struct WorkoutSessionView: View {
                         set: { str in
                             let cleaned = str.replacingOccurrences(of: ",", with: ".")
                             if let val = Double(cleaned), val >= 0 {
-                                exercises[exIdx].sets[setIdx].weightLbs = val
+                                // Convert from display unit back to lbs for storage
+                                exercises[exIdx].sets[setIdx].weightLbs = appState.storedWeightLbs(val)
                             } else if str.isEmpty {
                                 exercises[exIdx].sets[setIdx].weightLbs = 0
                             }
@@ -1062,7 +1067,9 @@ struct WorkoutSessionView: View {
                             }
                         }
 
-                    Text("lbs  ·  tap to type  or  ±5")
+                    Text(appState.useMetric
+                         ? "kg  ·  tap to type  or  ±2.5"
+                         : "lbs  ·  tap to type  or  ±5")
                         .font(.system(size: 11)).foregroundColor(Theme.textMuted)
                 }
 
@@ -1071,7 +1078,7 @@ struct WorkoutSessionView: View {
                 Button {
                     weightFieldFocused = false
                     withAnimation(.spring(response: 0.2)) {
-                        exercises[exIdx].sets[setIdx].weightLbs += 5
+                        exercises[exIdx].sets[setIdx].weightLbs += appState.weightStep
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill").font(.system(size: 38)).foregroundColor(Theme.blue)
@@ -1227,7 +1234,7 @@ struct WorkoutSessionView: View {
                     let warmupDone = ex.completedWarmupCount
                     let parts = [
                         warmupDone > 0 ? "\(warmupDone)W warmup" : nil,
-                        !ex.weightSummary.isEmpty ? "\(ex.weightSummary) · \(ex.repsSummary)" : nil
+                        !ex.weightSummary(useMetric: appState.useMetric).isEmpty ? "\(ex.weightSummary(useMetric: appState.useMetric)) · \(ex.repsSummary)" : nil
                     ].compactMap { $0 }
                     if !parts.isEmpty {
                         Text(parts.joined(separator: " · "))
@@ -1312,8 +1319,10 @@ struct WorkoutSessionView: View {
     // MARK: Helpers
 
     private func fmt(_ s: Int) -> String { String(format: "%d:%02d", s / 60, s % 60) }
+    /// Returns the weight as a plain number string in the user's chosen unit (no suffix).
     private func wStr(_ w: Double) -> String {
-        w.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(w))" : String(format: "%.1f", w)
+        let v = appState.displayWeight(w)
+        return v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
     }
 
     private func buildExercises(from chips: [String]) -> [WorkoutExercise] {
@@ -1452,6 +1461,7 @@ struct WorkoutSessionView: View {
 // MARK: - WorkoutSummaryView
 
 private struct WorkoutSummaryView: View {
+    @EnvironmentObject var appState: AppState
     let exercises: [WorkoutExercise]
     let sessionName: String
     let elapsed: Int
@@ -1463,6 +1473,8 @@ private struct WorkoutSummaryView: View {
         exercises.flatMap(\.sets).filter(\.isLogged)
             .reduce(0) { $0 + Int($1.weightLbs) * $1.completedReps }
     }
+    private var displayVolume: Int { Int(appState.displayWeight(Double(totalVolumeLbs)).rounded()) }
+    private var volumeLabel: String { totalVolumeLbs > 0 ? "\(appState.weightUnit) total vol." : "Volume" }
     private func fmt(_ s: Int) -> String { String(format: "%d:%02d", s / 60, s % 60) }
 
     var body: some View {
@@ -1488,8 +1500,8 @@ private struct WorkoutSummaryView: View {
                         HStack(spacing: 8) {
                             summaryTile(value: "\(totalSets)",   label: "Sets logged", icon: "checkmark.circle.fill", color: Theme.green)
                             summaryTile(
-                                value: totalVolumeLbs > 0 ? "\(totalVolumeLbs)" : "—",
-                                label: totalVolumeLbs > 0 ? "lbs total vol." : "Volume",
+                                value: totalVolumeLbs > 0 ? "\(displayVolume)" : "—",
+                                label: volumeLabel,
                                 icon: "scalemass.fill", color: Theme.purple)
                         }
                     }
@@ -1571,7 +1583,7 @@ private struct WorkoutSummaryView: View {
                             if s.isWarmup {
                                 Text("W ").font(.system(size: 10, weight: .bold)).foregroundColor(Theme.orange)
                             }
-                            Text(s.weightLbs > 0 ? "\(Int(s.weightLbs)) lbs" : "BW")
+                            Text(s.weightLbs > 0 ? appState.formatWeight(s.weightLbs) : "BW")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(s.isWarmup ? Theme.textMuted : Theme.text)
                             Text(" × ").font(.system(size: 13)).foregroundColor(Theme.textMuted)

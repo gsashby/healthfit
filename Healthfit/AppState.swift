@@ -186,6 +186,34 @@ final class AppState: ObservableObject {
 
     // MARK: Lift history — per-exercise weight records and 1RM predictions
 
+    // MARK: Units preference
+
+    @Published var useMetric: Bool = UserDefaults.standard.object(forKey: "useMetric") as? Bool ?? false
+
+    var weightUnit: String { useMetric ? "kg" : "lbs" }
+
+    /// Step for ±weight buttons in the workout logger (2.5 kg or 5 lbs).
+    var weightStep: Double { useMetric ? 2.5 * 2.20462 : 5.0 }
+
+    /// Converts stored lbs to the user's display unit.
+    func displayWeight(_ lbs: Double) -> Double { useMetric ? lbs / 2.20462 : lbs }
+
+    /// Converts a value entered in the user's unit back to lbs for storage.
+    func storedWeightLbs(_ displayValue: Double) -> Double { useMetric ? displayValue * 2.20462 : displayValue }
+
+    /// Returns a formatted weight string with unit suffix (e.g. "82.5 kg" or "182 lbs").
+    func formatWeight(_ lbs: Double) -> String {
+        let v = displayWeight(lbs)
+        let s = v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+        return "\(s) \(weightUnit)"
+    }
+
+    func saveUnitPreference() {
+        UserDefaults.standard.set(useMetric, forKey: "useMetric")
+    }
+
+    // MARK: Exercise history — per-exercise weight records and 1RM predictions
+
     @Published var exerciseHistory: [String: [ExerciseRecord]] = [:]
 
     /// Saves working-set results for one exercise, keeping the last 20 sessions.
@@ -466,6 +494,8 @@ final class AppState: ObservableObject {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         exerciseHistory = [:]
         UserDefaults.standard.removeObject(forKey: "exerciseHistory")
+        useMetric = false
+        UserDefaults.standard.removeObject(forKey: "useMetric")
         user = UserProfile(name: "", age: 0, sexAtBirth: "Male",
                            weightLb: 0, goalWeightLb: 0, description: "")
         planLocked = false
@@ -872,6 +902,44 @@ final class AppState: ObservableObject {
             isAdjusted: adj.tag == "Adjusted"
         )
         watchService.send(payload)
+    }
+
+    // MARK: - 7.3 Data export
+
+    struct HealthFitExport: Codable {
+        struct TrainingPrefs: Codable {
+            let type: String?
+            let strengthSplit: String?
+            let daysPerWeek: Int
+            let prioritizedDiscipline: String?
+        }
+        let exportedAt: String          // ISO 8601
+        let profile: UserProfile
+        let trainingPreferences: TrainingPrefs
+        let dietaryProfile: DietaryProfile
+        let todayFoodLog: [FoodEntry]
+        let exerciseHistory: [String: [ExerciseRecord]]
+    }
+
+    func exportData() -> Data? {
+        let fmt = ISO8601DateFormatter()
+        let payload = HealthFitExport(
+            exportedAt: fmt.string(from: Date()),
+            profile: user,
+            trainingPreferences: .init(
+                type: trainingType?.rawValue,
+                strengthSplit: strengthSplit?.rawValue,
+                daysPerWeek: daysPerWeek,
+                prioritizedDiscipline: prioritizedDiscipline
+            ),
+            dietaryProfile: dietaryProfile,
+            todayFoodLog: todayFoodLog,
+            exerciseHistory: exerciseHistory
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return try? encoder.encode(payload)
     }
 }
 

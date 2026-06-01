@@ -238,6 +238,9 @@ struct SettingsView: View {
     @State private var notifyWorkout = true
     @State private var notifyNutrition = true
     @State private var workoutTime = Date()
+    @State private var useMetric = false
+    @State private var exportItems: [Any] = []
+    @State private var showingExport = false
     private let sexOptions = ["Male", "Female", "Other"]
 
     private static let allergyOptions = [
@@ -270,11 +273,11 @@ struct SettingsView: View {
                                 }.pickerStyle(.segmented)
                             }
                             #if canImport(UIKit)
-                            ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight, keyboard: .decimalPad)
-                            ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight, keyboard: .decimalPad)
+                            ProfileField(label: "Current weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 84" : "e.g. 185", text: $weight, keyboard: .decimalPad)
+                            ProfileField(label: "Goal weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 75" : "e.g. 165", text: $goalWeight, keyboard: .decimalPad)
                             #else
-                            ProfileField(label: "Current weight (lbs)", placeholder: "e.g. 185", text: $weight)
-                            ProfileField(label: "Goal weight (lbs)", placeholder: "e.g. 165", text: $goalWeight)
+                            ProfileField(label: "Current weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 84" : "e.g. 185", text: $weight)
+                            ProfileField(label: "Goal weight (\(appState.useMetric ? "kg" : "lbs"))", placeholder: appState.useMetric ? "e.g. 75" : "e.g. 165", text: $goalWeight)
                             #endif
                         }
                         PrimaryButton(title: "Save changes", tint: Theme.green) {
@@ -282,8 +285,8 @@ struct SettingsView: View {
                                 name: name.trimmingCharacters(in: .whitespaces),
                                 age: Int(age) ?? appState.user.age,
                                 sexAtBirth: sex,
-                                weightLb: Double(weight) ?? appState.user.weightLb,
-                                goalWeightLb: Double(goalWeight) ?? appState.user.goalWeightLb,
+                                weightLb: (Double(weight) ?? 0) > 0 ? appState.storedWeightLbs(Double(weight)!) : appState.user.weightLb,
+                                goalWeightLb: (Double(goalWeight) ?? 0) > 0 ? appState.storedWeightLbs(Double(goalWeight)!) : appState.user.goalWeightLb,
                                 description: appState.user.description))
                             appState.dietaryProfile = DietaryProfile(
                                 allergies: Array(selectedAllergies).sorted(),
@@ -297,6 +300,8 @@ struct SettingsView: View {
                             appState.preferredWorkoutHour   = wc.hour   ?? 7
                             appState.preferredWorkoutMinute = wc.minute ?? 0
                             appState.saveNotificationPreferences()
+                            appState.useMetric = useMetric
+                            appState.saveUnitPreference()
                             dismiss()
                         }
 
@@ -332,6 +337,23 @@ struct SettingsView: View {
                             }
                         }
 
+                        sectionLabel("Preferences").padding(.top, 8)
+                        VStack(spacing: 0) {
+                            Toggle(isOn: $useMetric) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Use metric units")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(Theme.text)
+                                    Text("Weights in kg, distances in km")
+                                        .font(.system(size: 12)).foregroundColor(Theme.textMuted)
+                                }
+                            }
+                            .tint(Theme.green)
+                            .padding(.horizontal, 16).padding(.vertical, 12)
+                        }
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
                         sectionLabel("Notifications").padding(.top, 8)
                         VStack(spacing: 0) {
                             notifRow(title: "Morning briefing",
@@ -362,6 +384,36 @@ struct SettingsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                         sectionLabel("Account").padding(.top, 8)
+                        // 7.2 HealthKit permissions deep-link
+                        Button {
+                            #if canImport(UIKit)
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                            #endif
+                        } label: {
+                            Label("Manage Health permissions", systemImage: "heart.text.square")
+                                .font(.system(size: 16, weight: .semibold)).foregroundColor(Theme.text)
+                                .frame(maxWidth: .infinity).padding(.vertical, 14)
+                                .background(Theme.card2).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }.buttonStyle(.plain)
+                        // 7.3 Export data
+                        Button {
+                            if let data = appState.exportData() {
+                                let fmt = DateFormatter()
+                                fmt.dateFormat = "yyyy-MM-dd"
+                                let name = "healthfit-export-\(fmt.string(from: Date())).json"
+                                let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+                                try? data.write(to: url)
+                                exportItems = [url]
+                                showingExport = true
+                            }
+                        } label: {
+                            Label("Export my data", systemImage: "square.and.arrow.up")
+                                .font(.system(size: 16, weight: .semibold)).foregroundColor(Theme.text)
+                                .frame(maxWidth: .infinity).padding(.vertical, 14)
+                                .background(Theme.card2).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }.buttonStyle(.plain)
                         Button {
                             authService.signOut(); appState.resetOnboarding()
                         } label: {
@@ -387,6 +439,11 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }.foregroundColor(Theme.green)
                 }
             }
+            .sheet(isPresented: $showingExport) {
+                #if canImport(UIKit)
+                ActivityView(items: exportItems)
+                #endif
+            }
             .alert("Delete account?", isPresented: $showDeleteConfirm) {
                 Button("Delete", role: .destructive) { authService.signOut(); appState.resetOnboarding() }
                 Button("Cancel", role: .cancel) {}
@@ -395,8 +452,10 @@ struct SettingsView: View {
         .onAppear {
             name = appState.user.name; sex = appState.user.sexAtBirth
             age = appState.user.age == 0 ? "" : "\(appState.user.age)"
-            weight = appState.user.weightLb == 0 ? "" : "\(Int(appState.user.weightLb))"
-            goalWeight = appState.user.goalWeightLb == 0 ? "" : "\(Int(appState.user.goalWeightLb))"
+            let wDisplay = appState.displayWeight(appState.user.weightLb)
+            let gDisplay = appState.displayWeight(appState.user.goalWeightLb)
+            weight     = appState.user.weightLb == 0    ? "" : String(format: "%.1f", wDisplay)
+            goalWeight = appState.user.goalWeightLb == 0 ? "" : String(format: "%.1f", gDisplay)
             selectedAllergies = Set(appState.dietaryProfile.allergies)
             selectedPreferences = Set(appState.dietaryProfile.preferences)
             notifyMorning   = appState.notifyMorning
@@ -406,6 +465,7 @@ struct SettingsView: View {
             wc.hour = appState.preferredWorkoutHour
             wc.minute = appState.preferredWorkoutMinute
             workoutTime = Calendar.current.date(from: wc) ?? Date()
+            useMetric = appState.useMetric
         }
     }
 
@@ -424,3 +484,15 @@ struct SettingsView: View {
         .padding(.horizontal, 16).padding(.vertical, 12)
     }
 }
+
+// MARK: - UIActivityViewController wrapper (7.3 Export my data)
+
+#if canImport(UIKit)
+private struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
+#endif
