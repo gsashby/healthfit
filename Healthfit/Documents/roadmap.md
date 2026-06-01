@@ -177,9 +177,9 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 - App Store screenshots — pending
 
 ### 8.2 Legal & Compliance
-- Privacy policy — pending
-- Terms of service — pending
-- HealthKit entitlement justification — pending
+- **Privacy policy** ✅ — `Documents/privacy-policy.md`; covers HealthKit data use, on-device storage, USDA/Open Food Facts API calls (search terms only), on-device AI, no backend, export + deletion rights, GDPR/CCPA, health data disclaimer. Requires a hosted URL before App Store submission — replace contact placeholder and host on GitHub Pages or similar.
+- **HealthKit entitlement justification** ✅ — `Documents/healthkit-justification.md`; per-type justification text ready to paste into App Store Connect, covering all 5 read types (HRV, sleep, RHR, active energy, workouts) and 3 write types (workouts, active energy, distance), plus a data minimisation statement and background delivery rationale.
+- Terms of service — pending (recommended but not required for a free app)
 
 ### 8.3 Quality ✅
 
