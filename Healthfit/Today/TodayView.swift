@@ -780,10 +780,10 @@ struct WorkoutSessionView: View {
                         VStack(spacing: 16) {
                             statsBar
                             if isLift { liftContent } else { cardioContent }
+                            completionFooter
                         }
-                        .padding(.horizontal, 18).padding(.top, 12).padding(.bottom, 110)
+                        .padding(.horizontal, 18).padding(.top, 12).padding(.bottom, 28)
                     }
-                    footer
                 }
             }
         }
@@ -1422,7 +1422,10 @@ struct WorkoutSessionView: View {
 
     // MARK: Footer
 
-    private var footer: some View {
+    /// Inline footer rendered at the end of the scrollable workout list —
+    /// "Mark complete" appears after the last exercise/cardio segment instead
+    /// of competing with active sets in a sticky bar.
+    private var completionFooter: some View {
         VStack(spacing: 14) {
             Button {
                 withAnimation { showSummary = true }
@@ -1440,8 +1443,7 @@ struct WorkoutSessionView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Theme.textBody)
         }
-        .padding(.horizontal, 18).padding(.vertical, 14)
-        .background(Theme.bg.ignoresSafeArea(edges: .bottom))
+        .padding(.top, 4)
     }
 
     // MARK: Helpers
