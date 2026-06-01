@@ -25,6 +25,16 @@ enum Theme {
     static let orange      = Color(red: 1.000, green: 0.624, blue: 0.039) // #ff9f0a
     static let purple      = Color(red: 0.749, green: 0.353, blue: 0.949) // #bf5af2
 
+    // Strength session palette (matches Lower Body Lift v2 design)
+    static let pink        = Color(red: 0.984, green: 0.173, blue: 0.322) // #fb2c52
+    static let pinkDim     = Color(red: 0.984, green: 0.173, blue: 0.322).opacity(0.16)
+    static let mint        = Color(red: 0.184, green: 0.851, blue: 0.659) // #2fd9a8
+    static let mintInk     = Color(red: 0.024, green: 0.137, blue: 0.102) // #06231a, foreground on mint
+    static let gold        = Color(red: 0.847, green: 0.655, blue: 0.165) // #d8a72a
+    static let textBody    = Color(red: 0.643, green: 0.659, blue: 0.698) // #a4a8b2
+    static let textGhost   = Color(red: 0.353, green: 0.369, blue: 0.412) // #5a5e69
+    static let inputBorder = Color.white.opacity(0.16)
+
     static func accent(for state: ReadinessState) -> Color {
         switch state {
         case .green:  return green
