@@ -27,6 +27,7 @@ struct TodayView: View {
     @State private var coachExpanded: Bool = true
     @State private var fuelExpanded: Bool = true
     @State private var sessionExpanded: Bool = true
+    @State private var summaryExpanded: Bool = true
 
     // Live HealthKit data is suppressed when user taps "Keep original".
     private var activeReadiness: ReadinessState {
@@ -465,61 +466,75 @@ struct TodayView: View {
         let mins = summary.elapsedSeconds / 60
         let secs = summary.elapsedSeconds % 60
         let durationStr = String(format: "%d:%02d", mins, secs)
+        let doneExercises = summary.exercises.filter { !$0.wasSkipped && !$0.loggedSets.isEmpty }
 
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(spacing: 0) {
+            // Tappable header — always visible
+            Button {
+                withAnimation(.spring(response: 0.3)) { summaryExpanded.toggle() }
+            } label: {
+                VStack(alignment: .leading, spacing: 14) {
+                    // Title row
+                    HStack(spacing: 10) {
+                        ZStack {
+                            Circle().fill(Theme.green.opacity(0.15))
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .heavy))
+                                .foregroundColor(Theme.green)
+                        }
+                        .frame(width: 34, height: 34)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(summary.sessionName)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(Theme.text)
+                                .lineLimit(1)
+                            Text("Completed")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Theme.green)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.textMuted)
+                            .rotationEffect(.degrees(summaryExpanded ? 180 : 0))
+                    }
 
-            // Header
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(Theme.green.opacity(0.15))
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundColor(Theme.green)
+                    // Stats row — always visible
+                    HStack(spacing: 0) {
+                        summaryStatPill(icon: "timer", color: Theme.blue, value: durationStr, label: "Duration")
+                        if let hr = summary.avgHR {
+                            Rectangle().fill(Theme.separator).frame(width: 1, height: 36)
+                            summaryStatPill(icon: "heart.fill", color: Theme.red, value: "\(hr)", label: "Avg BPM")
+                        }
+                        Rectangle().fill(Theme.separator).frame(width: 1, height: 36)
+                        summaryStatPill(icon: "flame.fill", color: Theme.orange, value: "\(summary.kcalBurned)", label: "Cal")
+                    }
+                    .background(Theme.card2)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .frame(width: 34, height: 34)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(summary.sessionName)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Theme.text)
-                        .lineLimit(1)
-                    Text("Completed")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Theme.green)
-                }
-                Spacer()
+                .padding(18)
             }
+            .buttonStyle(.plain)
 
-            // Stats row
-            HStack(spacing: 0) {
-                summaryStatPill(icon: "timer", color: Theme.blue, value: durationStr, label: "Duration")
-                if let hr = summary.avgHR {
-                    Rectangle().fill(Theme.separator).frame(width: 1, height: 36)
-                    summaryStatPill(icon: "heart.fill", color: Theme.red, value: "\(hr)", label: "Avg BPM")
-                }
-                Rectangle().fill(Theme.separator).frame(width: 1, height: 36)
-                summaryStatPill(icon: "flame.fill", color: Theme.orange, value: "\(summary.kcalBurned)", label: "Cal")
-            }
-            .background(Theme.card2)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-            // Exercise highlights (strength sessions only)
-            let doneExercises = summary.exercises.filter { !$0.wasSkipped && !$0.loggedSets.isEmpty }
-            if !doneExercises.isEmpty {
+            // Collapsible highlights
+            if summaryExpanded && !doneExercises.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
+                    Rectangle().fill(Theme.separator).frame(height: 1)
                     Text("Session highlights")
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundColor(Theme.textGhost)
                         .tracking(1)
-
                     ForEach(doneExercises, id: \.name) { ex in
                         workingSetsHighlight(ex: ex)
                     }
                 }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 18)
             }
         }
-        .padding(18)
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .animation(.spring(response: 0.3), value: summaryExpanded)
     }
 
     private func summaryStatPill(icon: String, color: Color, value: String, label: String) -> some View {
