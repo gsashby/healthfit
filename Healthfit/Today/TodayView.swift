@@ -441,7 +441,10 @@ struct TodayView: View {
                             appState.setFullRestDay()
                         }
                     } else {
-                        SecondaryButton(title: "Modify", action: {})
+                        SecondaryButton(title: "Modify") {
+                            appState.planMode = .input
+                            appState.selectedTab = 1
+                        }
                     }
 
                     if snapshot.state == .green {
@@ -881,7 +884,10 @@ struct TodayView: View {
                             if snapshot.state == .red {
                                 SecondaryButton(title: "Full rest day") { appState.setFullRestDay() }
                             } else {
-                                SecondaryButton(title: "Modify", action: {})
+                                SecondaryButton(title: "Modify") {
+                            appState.planMode = .input
+                            appState.selectedTab = 1
+                        }
                             }
                             if snapshot.state == .green {
                                 SecondaryButton(title: "Move to tomorrow") { appState.moveTodayToTomorrow() }
