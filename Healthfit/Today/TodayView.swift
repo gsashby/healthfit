@@ -14,7 +14,9 @@ struct TodayView: View {
     @EnvironmentObject var readinessService: ReadinessService
     @EnvironmentObject var fmService: FoundationModelService
     @State private var showSettings = false
+    @State private var showWorkoutPreview = false
     @State private var showWorkoutSession = false
+    @State private var shouldStartWorkout = false
 
     // 5.3 — proactive nudges
     @State private var enhancedReasoning: String? = nil
@@ -173,6 +175,27 @@ struct TodayView: View {
                     phase: appState.currentPlan.phase,
                     userName: name
                 )
+            }
+        }
+        .sheet(isPresented: $showWorkoutPreview, onDismiss: {
+            if shouldStartWorkout {
+                shouldStartWorkout = false
+                showWorkoutSession = true
+            }
+        }) {
+            if let todayDay = appState.currentPlan.days.first(where: { $0.isToday }),
+               let session = todayDay.sessions.first(where: { $0.kind != .rest }) ?? todayDay.sessions.first {
+                WorkoutPreviewView(
+                    session: session,
+                    readiness: activeReadiness,
+                    chips: snapshot.workoutChips,
+                    reasoning: enhancedReasoning ?? snapshot.reasoning,
+                    accent: accent
+                ) {
+                    shouldStartWorkout = true
+                    showWorkoutPreview = false
+                }
+                .environmentObject(appState)
             }
         }
         .sheet(isPresented: $showWorkoutSession) {
@@ -837,7 +860,7 @@ struct TodayView: View {
                     // Action buttons
                     VStack(spacing: 10) {
                         PrimaryButton(title: "View Workout", tint: accent) {
-                            showWorkoutSession = true
+                            showWorkoutPreview = true
                         }
                         HStack(spacing: 10) {
                             if snapshot.state == .red {
@@ -1018,6 +1041,147 @@ struct FlowLayout: Layout {
             if x + s.width > bounds.maxX { x = bounds.minX; y += lineH + spacing; lineH = 0 }
             view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
             x += s.width + spacing; lineH = max(lineH, s.height)
+        }
+    }
+}
+
+// MARK: - WorkoutPreviewView
+
+struct WorkoutPreviewView: View {
+    let session: PlanSession
+    let readiness: ReadinessState
+    let chips: [String]
+    let reasoning: String
+    let accent: Color
+    let onStart: () -> Void
+
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    private var isLift: Bool { session.kind == .lift }
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                // Nav bar
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 36, height: 36)
+                            .background(Theme.card2)
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                    Text("Today's Session")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Spacer()
+                    // Balance the X button
+                    Color.clear.frame(width: 36, height: 36)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+
+                        // Session header
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Text(session.kind.emoji)
+                                    .font(.system(size: 28))
+                                if readiness != .green {
+                                    Text("ADJUSTED")
+                                        .font(.system(size: 11, weight: .heavy))
+                                        .foregroundColor(Theme.gold)
+                                        .tracking(1.2)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(Theme.gold.opacity(0.08))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                                .stroke(Theme.gold, lineWidth: 1.5)
+                                        )
+                                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                }
+                            }
+                            Text(session.name)
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(Theme.text)
+                            Text("\(session.durationMin) min · \(session.kind == .lift ? "Strength" : session.kind == .run ? "Cardio" : session.kind == .yoga ? "Yoga" : "Recovery")")
+                                .font(.system(size: 15))
+                                .foregroundColor(Theme.textMuted)
+                        }
+                        .padding(20)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                        // Exercise list
+                        if !chips.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Exercises").eyebrow()
+                                FlowLayout(spacing: 8) {
+                                    ForEach(chips, id: \.self) { Chip(text: $0) }
+                                }
+                            }
+                            .padding(20)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        }
+
+                        // Reasoning
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .top, spacing: 12) {
+                                ZStack {
+                                    Circle().fill(accent)
+                                    Text("i")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                                .frame(width: 28, height: 28)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(readiness == .green ? "Why this session." : "Why we adjusted.")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Theme.text)
+                                    Text(reasoning)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(Theme.textMuted)
+                                        .lineSpacing(2)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 110) // room for pinned button
+                }
+            }
+
+            // Pinned Start Workout button
+            VStack {
+                Spacer()
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [Theme.bg.opacity(0), Theme.bg],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: 24)
+                    PrimaryButton(title: "Start Workout", tint: accent, action: onStart)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 36)
+                        .background(Theme.bg)
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
         }
     }
 }
