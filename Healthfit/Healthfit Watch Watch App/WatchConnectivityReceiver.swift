@@ -104,8 +104,8 @@ final class WatchConnectivityReceiver: NSObject, ObservableObject {
     }
 
     private func applySync(from dict: [String: Any]) {
-        guard let syncDict = dict["workoutSync"] as? [String: Any] ?? dict as? [String: Any],
-              let data    = try? JSONSerialization.data(withJSONObject: syncDict),
+        let syncDict = (dict["workoutSync"] as? [String: Any]) ?? dict
+        guard let data    = try? JSONSerialization.data(withJSONObject: syncDict),
               let payload = try? JSONDecoder().decode(WorkoutSyncPayload.self, from: data),
               payload.source != "watch"
         else { return }

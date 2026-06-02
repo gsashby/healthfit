@@ -10,22 +10,7 @@ struct WatchRootView: View {
     @State private var autoLaunchWorkout = false
 
     var body: some View {
-        // Hidden NavigationLink for auto-launching active workout from phone
-        NavigationLink(isActive: $autoLaunchWorkout) {
-            WatchActiveWorkoutView(
-                workoutName: receiver.activeWorkout?.workoutName
-                             ?? receiver.workout?.workoutName ?? "Workout",
-                exercises: receiver.workout?.exercises ?? []
-            )
-        } label: { EmptyView() }
-        .onChange(of: receiver.activeWorkout) { _, payload in
-            if let payload, payload.isActive, payload.source == "phone" {
-                autoLaunchWorkout = true
-            } else if payload?.isActive == false {
-                autoLaunchWorkout = false
-            }
-        }
-
+        Group {
         if let data = receiver.workout {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -51,6 +36,21 @@ struct WatchRootView: View {
             }
             .padding()
             .toolbar(.hidden)
+        }
+        }
+        .navigationDestination(isPresented: $autoLaunchWorkout) {
+            WatchActiveWorkoutView(
+                workoutName: receiver.activeWorkout?.workoutName
+                             ?? receiver.workout?.workoutName ?? "Workout",
+                exercises: receiver.workout?.exercises ?? []
+            )
+        }
+        .onChange(of: receiver.activeWorkout) { _, payload in
+            if let payload, payload.isActive, payload.source == "phone" {
+                autoLaunchWorkout = true
+            } else if payload?.isActive == false {
+                autoLaunchWorkout = false
+            }
         }
     }
 

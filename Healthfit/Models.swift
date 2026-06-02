@@ -325,6 +325,24 @@ struct ParsedInput: Identifiable {
     let value: String
 }
 
+// MARK: - Completed workout summary
+
+struct CompletedExerciseSummary {
+    let name: String
+    let wasSkipped: Bool
+    let loggedSets: [(reps: Int, weightLbs: Double, isWarmup: Bool)]
+    let bestOneRM: Double?
+}
+
+struct CompletedWorkoutSummary {
+    let sessionName: String
+    let kind: SessionKind
+    let elapsedSeconds: Int
+    let kcalBurned: Int
+    let avgHR: Int?
+    let exercises: [CompletedExerciseSummary]
+}
+
 // MARK: - Lift history
 
 struct LoggedSet: Codable {

@@ -71,7 +71,6 @@ struct TodayView: View {
                     coachInsightCard
                     watchDataBanner
                     readinessCard
-                    vitalsRow
                     if !appState.todaySessionAccepted {
                         workoutCard
                         reasoningCard
@@ -305,19 +304,51 @@ struct TodayView: View {
                     .foregroundColor(Theme.text)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if !snapshot.vitals.isEmpty {
+                    Rectangle()
+                        .fill(Theme.separator)
+                        .frame(height: 1)
+                        .padding(.top, 4)
+                    HStack(spacing: 0) {
+                        ForEach(Array(snapshot.vitals.enumerated()), id: \.element.id) { i, vital in
+                            if i > 0 {
+                                Rectangle()
+                                    .fill(Theme.separator)
+                                    .frame(width: 1, height: 44)
+                            }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(vital.label)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(Theme.textMuted)
+                                    .textCase(.uppercase)
+                                    .tracking(0.5)
+                                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                                    Text(vital.value)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Theme.text)
+                                    if let unit = vital.unit {
+                                        Text(unit)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(Theme.textMuted)
+                                    }
+                                }
+                                Text(vital.trend)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(vital.trendDir == .up ? Theme.green
+                                                   : vital.trendDir == .down ? Theme.red
+                                                   : Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
             }
             .padding(22)
         }
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-
-    // MARK: Vitals
-
-    private var vitalsRow: some View {
-        HStack(spacing: 8) {
-            ForEach(snapshot.vitals) { vital in VitalCell(vital: vital) }
-        }
     }
 
     // MARK: Workout card

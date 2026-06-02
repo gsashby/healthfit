@@ -166,7 +166,7 @@ final class WatchWorkoutController: ObservableObject {
 
     // MARK: - Parsing
 
-    private static func parse(_ chip: String) -> WatchExerciseData? {
+    private nonisolated static func parse(_ chip: String) -> WatchExerciseData? {
         guard let xRange = chip.range(of: "×") else { return nil }
         let parts = String(chip[..<xRange.lowerBound])
             .trimmingCharacters(in: .whitespaces)

@@ -254,6 +254,33 @@ final class FoundationModelService: ObservableObject {
         return (try? await session.respond(to: prompt).content) ?? ""
     }
 
+    // MARK: - Daily coach insight
+
+    /// Generates a brief, encouraging coach check-in based on today's health vitals.
+    func generateCoachInsight(
+        userName: String,
+        state: ReadinessState,
+        vitals: [Vital],
+        workoutSessionName: String
+    ) async -> String {
+        guard isAvailable else { return "" }
+        let vitalsDesc = vitals.map { v in
+            "\(v.label): \(v.value)\(v.unit.map { " \($0)" } ?? "") (\(v.trend), trending \(v.trendDir == .up ? "up" : v.trendDir == .down ? "down" : "flat"))"
+        }.joined(separator: "; ")
+        let session = LanguageModelSession(instructions:
+            "You are a warm, encouraging personal fitness coach writing a brief daily check-in. " +
+            "Write 2–3 sentences (under 70 words). Comment on one or two specific metrics the user will recognise, " +
+            "explain what they mean in plain language, and give one concrete positive recommendation. " +
+            "If metrics are trending down, be honest but encouraging — frame it as information, not failure. " +
+            "Plain text only. No bullet points. Address the user by first name.")
+        let prompt = """
+            Name: \(userName). Readiness: \(state.label).
+            Today's vitals: \(vitalsDesc).
+            Planned session: \(workoutSessionName).
+            """
+        return (try? await session.respond(to: prompt).content) ?? ""
+    }
+
     // MARK: - End-of-week summary
 
     /// Generates a short end-of-week coaching summary for the Today tab.
