@@ -13,7 +13,7 @@ struct PlanInputView: View {
 
     @State private var description: String = ""
     @State private var selected: Set<String> = ["Running", "Lifting", "Yoga"]
-    @State private var parsedRows: [ParsedInput] = MockData.parsedInput
+    @State private var parsedRows: [ParsedInput] = []
     @State private var isParsing = false
     @State private var isGenerating = false
     @State private var errorMessage: String?
@@ -25,7 +25,9 @@ struct PlanInputView: View {
             VStack(alignment: .leading, spacing: 14) {
                 hero
                 inputCard
-                parsedCard
+                if isParsing || !parsedRows.isEmpty {
+                    parsedCard
+                }
                 if !fmService.isAvailable {
                     unavailableBanner
                 }

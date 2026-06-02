@@ -9,7 +9,6 @@ import SwiftUI
 struct FoodView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var readinessService: ReadinessService
-    @State private var showingPhotoLog = false
     @State private var showingSearch = false
     @State private var showingCamera = false
     @State private var showingCameraResults = false
@@ -157,10 +156,6 @@ struct FoodView: View {
         .sheet(isPresented: $showingSearch) {
             FoodSearchView()
                 .presentationDetents([.large])
-        }
-        .sheet(isPresented: $showingPhotoLog) {
-            PhotoLogSheet()
-                .presentationDetents([.medium, .large])
         }
         .sheet(item: $entryToEdit) { entry in
             EditEntrySheet(entry: entry)
@@ -497,171 +492,6 @@ private struct MealRow: View {
         case "snack":     return "🍎"
         default:          return "🍽️"
         }
-    }
-}
-
-// MARK: - Photo-log sheet
-
-private struct PhotoLogSheet: View {
-    @EnvironmentObject var appState: AppState
-    @Environment(\.dismiss) private var dismiss
-
-    enum Phase { case scanning, suggestions, manual }
-    @State private var phase: Phase = .scanning
-    @State private var mealType: String = {
-        let h = Calendar.current.component(.hour, from: Date())
-        switch h {
-        case 5..<10: return "Breakfast"
-        case 10..<15: return "Lunch"
-        case 15..<21: return "Dinner"
-        default:      return "Snack"
-        }
-    }()
-
-    private let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
-
-    var body: some View {
-        ZStack {
-            Theme.bg.ignoresSafeArea()
-            VStack(spacing: 16) {
-                Capsule()
-                    .fill(Theme.textMuted.opacity(0.4))
-                    .frame(width: 36, height: 4)
-                    .padding(.top, 8)
-
-                switch phase {
-                case .scanning:    scanningPhase
-                case .suggestions: suggestionsPhase
-                case .manual:      manualPhase
-                }
-            }
-            .padding(.horizontal, 22)
-        }
-    }
-
-    // MARK: Scanning
-
-    private var scanningPhase: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 64, weight: .light))
-                .foregroundColor(Theme.green)
-            Text("Reading the plate…")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Theme.text)
-            Text("Identifying ingredients, estimating portions, checking allergens.")
-                .font(.system(size: 14))
-                .foregroundColor(Theme.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 30)
-                .lineSpacing(2)
-            Spacer()
-        }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-                withAnimation { phase = .suggestions }
-            }
-        }
-    }
-
-    // MARK: Suggestions
-
-    private var suggestionsPhase: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Is this it?").eyebrow().padding(.top, 6)
-            Text("Pick the closest match — I'll log macros and flag allergens.")
-                .font(.system(size: 14))
-                .foregroundColor(Theme.textMuted)
-
-            Picker("Meal", selection: $mealType) {
-                ForEach(mealTypes, id: \.self) { Text($0).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.bottom, 4)
-
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(Array(MockData.foodPickerSuggestions.enumerated()), id: \.offset) { _, item in
-                        let userAllergens = Set(appState.dietaryProfile.allergies)
-                        let hasMatch = item.allergens.contains { userAllergens.contains($0) }
-                        Button { logSuggestion(item) } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(item.name)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(Theme.text)
-                                        .multilineTextAlignment(.leading)
-                                    Text("~\(item.kcal) kcal")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(Theme.textMuted)
-                                    if hasMatch {
-                                        Label("Contains your allergens",
-                                              systemImage: "exclamationmark.triangle.fill")
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundColor(Theme.red)
-                                            .padding(.top, 2)
-                                    }
-                                    if !item.allergens.isEmpty {
-                                        FlowLayout(spacing: 4) {
-                                            ForEach(item.allergens, id: \.self) { a in
-                                                let isMatch = userAllergens.contains(a)
-                                                Text(a)
-                                                    .font(.system(size: 10, weight: .medium))
-                                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                                    .background(isMatch ? Theme.red.opacity(0.18) : Theme.yellow.opacity(0.18))
-                                                    .foregroundColor(isMatch ? Theme.red : Theme.yellow)
-                                                    .clipShape(Capsule())
-                                            }
-                                        }
-                                        .padding(.top, 2)
-                                    }
-                                }
-                                Spacer()
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(Theme.green)
-                                    .font(.system(size: 20))
-                            }
-                            .padding(14)
-                            .background(hasMatch ? Theme.red.opacity(0.06) : Theme.card)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(hasMatch ? Theme.red.opacity(0.3) : .clear, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            Spacer()
-
-            SecondaryButton(title: "None of these — type it") {
-                withAnimation { phase = .manual }
-            }
-            .padding(.bottom, 8)
-        }
-    }
-
-    private func logSuggestion(_ item: (name: String, kcal: Int, allergens: [String])) {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "h:mm a"
-        appState.logFood(FoodEntry(
-            mealType: mealType,
-            name: item.name,
-            kcal: item.kcal,
-            macros: Macros(carbsG: 0, proteinG: 0, fatG: 0),
-            allergens: item.allergens,
-            time: fmt.string(from: Date())
-        ))
-        dismiss()
-    }
-
-    // MARK: Manual entry
-
-    private var manualPhase: some View {
-        FoodEntryForm(defaultMealType: mealType, onDone: { dismiss() })
     }
 }
 

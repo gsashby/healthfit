@@ -2445,7 +2445,8 @@ private struct WorkoutSummaryView: View {
                     Text(ex.name).font(.system(size: 15, weight: .semibold))
                         .foregroundColor(ex.isSkipped ? Theme.textMuted : Theme.text)
                     if let rm = oneRM, !ex.isSkipped {
-                        Text("Est. 1RM: \(Int(rm.rounded())) lbs")
+                        let displayRM = appState.displayWeight(rm)
+                        Text("Est. 1RM: \(Int(displayRM.rounded())) \(appState.weightUnit)")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(Theme.blue)
                     }
