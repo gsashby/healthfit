@@ -21,6 +21,11 @@ struct TodayView: View {
     @State private var coachInsight: String? = nil
     @State private var weekSummaryText: String? = nil
 
+    // Collapsible card states
+    @State private var coachExpanded: Bool = true
+    @State private var fuelExpanded: Bool = true
+    @State private var sessionExpanded: Bool = true
+
     // Live HealthKit data is suppressed when user taps "Keep original".
     private var activeReadiness: ReadinessState {
         if appState.todayForcesOriginalPlan { return .green }
@@ -66,17 +71,18 @@ struct TodayView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     header
-                    primaryGoalChip
-                    if appState.needsNewWeekPlan { weekSummaryCard }
-                    coachInsightCard
-                    watchDataBanner
                     readinessCard
-                    if !appState.todaySessionAccepted {
-                        workoutCard
-                        reasoningCard
+                    coachInsightCard
+                    fuelCard
+                    if appState.todaySessionAccepted, let summary = appState.completedWorkoutSummary {
+                        completedWorkoutSummaryCard(summary: summary)
+                    } else if appState.todaySessionAccepted {
+                        PrimaryButton(title: "Workout logged ✓", tint: Theme.green, action: {})
+                            .disabled(true)
+                            .padding(.top, 4)
+                    } else {
+                        sessionWidget
                     }
-                    actionsRow
-                    nutritionCard
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 28)
@@ -623,12 +629,240 @@ struct TodayView: View {
     }
 
     private var coachInsightCard: some View {
-        ReasoningCallout(
-            title: "Coach.",
-            message: coachInsight ?? coachInsightFallback,
-            tint: Theme.purple,
-            iconText: "C"
-        )
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3)) { coachExpanded.toggle() }
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(Theme.purple)
+                        Text("C")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .frame(width: 28, height: 28)
+                    Text("Coach.")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.textMuted)
+                        .rotationEffect(.degrees(coachExpanded ? 180 : 0))
+                }
+                .padding(18)
+            }
+            .buttonStyle(.plain)
+
+            if coachExpanded {
+                Text(coachInsight ?? coachInsightFallback)
+                    .font(.system(size: 13))
+                    .foregroundColor(Theme.textMuted)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .animation(.spring(response: 0.3), value: coachExpanded)
+    }
+
+    // MARK: Today's Fuel card (collapsible)
+
+    private var fuelCard: some View {
+        let consumed = appState.todayFoodLog.reduce(0) { $0 + $1.kcal }
+        let target   = snapshot.kcalTarget
+        let left     = max(0, target - consumed)
+        let pct      = target > 0 ? min(1.0, Double(consumed) / Double(target)) : 0
+
+        return VStack(spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3)) { fuelExpanded.toggle() }
+            } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Today's fuel").eyebrow()
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.textMuted)
+                            .rotationEffect(.degrees(fuelExpanded ? 180 : 0))
+                    }
+
+                    // Calorie tracker — always visible
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Calories")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Theme.textMuted)
+                            .padding(.top, 14)
+                        HStack(alignment: .firstTextBaseline) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("\(consumed) cal")
+                                    .font(.system(size: 26, weight: .bold))
+                                    .foregroundColor(Theme.text)
+                                Text("/ \(target)")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                            Spacer()
+                            Text("\(left) left")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.textMuted)
+                        }
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(Theme.card2)
+                                    .frame(height: 8)
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(Theme.blue)
+                                    .frame(width: geo.size.width * pct, height: 8)
+                            }
+                        }
+                        .frame(height: 8)
+                    }
+                }
+                .padding(20)
+            }
+            .buttonStyle(.plain)
+
+            if fuelExpanded {
+                VStack(alignment: .leading, spacing: 0) {
+                    Rectangle().fill(Theme.separator).frame(height: 1)
+                        .padding(.horizontal, 20)
+                    let macros: [(String, String)] = [
+                        ("\(snapshot.macros.carbsG)g", "Carbs"),
+                        ("\(snapshot.macros.proteinG)g", "Protein"),
+                        ("\(snapshot.macros.fatG)g", "Fat")
+                    ]
+                    HStack(spacing: 0) {
+                        ForEach(Array(macros.enumerated()), id: \.offset) { _, pair in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(pair.0)
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(Theme.text)
+                                Text(pair.1)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                }
+            }
+        }
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .animation(.spring(response: 0.3), value: fuelExpanded)
+    }
+
+    // MARK: Session widget (collapsible — merges workout card, reasoning, actions)
+
+    private var sessionWidget: some View {
+        VStack(spacing: 0) {
+            // Tappable header — always visible
+            Button {
+                withAnimation(.spring(response: 0.3)) { sessionExpanded.toggle() }
+            } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text(snapshot.workoutTitle).eyebrow()
+                        Spacer()
+                        StatusTag(text: snapshot.workoutTag, tint: accent)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.textMuted)
+                            .rotationEffect(.degrees(sessionExpanded ? 180 : 0))
+                            .padding(.leading, 6)
+                    }
+                    Text(snapshot.workoutName)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.text)
+                        .padding(.top, 10)
+                    Text(snapshot.workoutMeta)
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.textMuted)
+                        .padding(.top, 4)
+                    if !sessionExpanded {
+                        Text("\(snapshot.workoutChips.count) exercises · tap to expand")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.textGhost)
+                            .padding(.top, 8)
+                    }
+                }
+                .padding(20)
+            }
+            .buttonStyle(.plain)
+
+            if sessionExpanded {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Exercise chips
+                    FlowLayout(spacing: 8) {
+                        ForEach(snapshot.workoutChips, id: \.self) { Chip(text: $0) }
+                    }
+                    .padding(.horizontal, 20)
+
+                    Rectangle().fill(Theme.separator).frame(height: 1)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 18)
+
+                    // Why this session
+                    HStack(alignment: .top, spacing: 12) {
+                        ZStack {
+                            Circle().fill(Theme.blue)
+                            Text("i")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 28, height: 28)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(snapshot.state == .green ? "Why this session." : "Why we adjusted.")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Theme.text)
+                            Text(enhancedReasoning ?? snapshot.reasoning)
+                                .font(.system(size: 13))
+                                .foregroundColor(Theme.textMuted)
+                                .lineSpacing(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    // Action buttons
+                    VStack(spacing: 10) {
+                        PrimaryButton(title: "View Workout", tint: accent) {
+                            showWorkoutSession = true
+                        }
+                        HStack(spacing: 10) {
+                            if snapshot.state == .red {
+                                SecondaryButton(title: "Full rest day") { appState.setFullRestDay() }
+                            } else {
+                                SecondaryButton(title: "Modify", action: {})
+                            }
+                            if snapshot.state == .green {
+                                SecondaryButton(title: "Move to tomorrow") { appState.moveTodayToTomorrow() }
+                            } else {
+                                SecondaryButton(
+                                    title: appState.todayForcesOriginalPlan ? "Restore adjustment" : "Keep original"
+                                ) { appState.todayForcesOriginalPlan.toggle() }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 20)
+                }
+            }
+        }
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .animation(.spring(response: 0.3), value: sessionExpanded)
     }
 
     // MARK: Week summary (5.3)
