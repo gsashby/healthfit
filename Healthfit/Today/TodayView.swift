@@ -1374,6 +1374,7 @@ struct WorkoutSessionView: View {
     @State private var isSaving = false
     @State private var showSummary = false
     @State private var editingSetID: UUID? = nil
+    @State private var expandedDoneIdx: Int? = nil
     @FocusState private var weightFieldFocused: Bool
 
     private let startDate = Date()
@@ -1578,9 +1579,17 @@ struct WorkoutSessionView: View {
             } else {
                 let activeIdx = exercises.firstIndex(where: { !$0.isFullyLogged })
                 ForEach(Array(exercises.indices), id: \.self) { idx in
-                    if idx == activeIdx        { activeCard(idx: idx) }
-                    else if exercises[idx].isFullyLogged { doneRow(idx: idx) }
-                    else                       { upcomingRow(idx: idx) }
+                    if idx == activeIdx {
+                        activeCard(idx: idx)
+                    } else if exercises[idx].isFullyLogged {
+                        if idx == expandedDoneIdx {
+                            activeCard(idx: idx, isEditingDone: true)
+                        } else {
+                            doneRow(idx: idx)
+                        }
+                    } else {
+                        upcomingRow(idx: idx)
+                    }
                 }
             }
         }
@@ -1588,7 +1597,7 @@ struct WorkoutSessionView: View {
 
     // MARK: Active card (v2 set-table layout)
 
-    private func activeCard(idx: Int) -> some View {
+    private func activeCard(idx: Int, isEditingDone: Bool = false) -> some View {
         let ex = exercises[idx]
         let nextIdx = ex.nextSetIdx
         let activeSet = nextIdx.map { ex.sets[$0] }
@@ -1651,11 +1660,13 @@ struct WorkoutSessionView: View {
 
             // Coaching cue
             VStack(alignment: .leading, spacing: 5) {
-                Text(allDone
-                     ? "All working sets logged. Nice work."
-                     : (activeSet?.isWarmup == true
-                        ? "Warmup \(ex.completedWarmupCount + 1) of \(ex.warmupSets.count) · lighter, no RIR"
-                        : "Working set \(workingDone + 1) of \(workingTotal) · target 2–3 RIR"))
+                Text(isEditingDone
+                     ? "Editing completed exercise."
+                     : (allDone
+                        ? "All working sets logged. Nice work."
+                        : (activeSet?.isWarmup == true
+                           ? "Warmup \(ex.completedWarmupCount + 1) of \(ex.warmupSets.count) · lighter, no RIR"
+                           : "Working set \(workingDone + 1) of \(workingTotal) · target 2–3 RIR")))
                     .font(.system(size: 14))
                     .foregroundColor(Theme.textBody)
                 Text(adjustedCueText)
@@ -1703,46 +1714,64 @@ struct WorkoutSessionView: View {
                 rirSection(exIdx: idx, setIdx: rirIdx)
             }
 
-            // Action buttons (Log all sets | Log set N) — proportional widths
-            GeometryReader { geo in
-                let spacing: CGFloat = 10
-                let totalFlex: CGFloat = 1.0 + 1.7
-                let avail = geo.size.width - spacing
-                HStack(spacing: spacing) {
-                    Button {
-                        logAllRemainingSets(in: idx)
-                    } label: {
-                        Text("Log all sets")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(allDone ? Theme.textGhost : Theme.text)
-                            .frame(width: avail * (1.0 / totalFlex), height: 54)
-                            .background(Theme.card2)
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.white.opacity(0.08), lineWidth: 1))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(allDone)
-
-                    Button {
-                        logCurrentSet(in: idx)
-                    } label: {
-                        Text(allDone ? "All sets logged"
-                             : (activeSet?.isWarmup == true
-                                ? "Log warmup \(ex.completedWarmupCount + 1)"
-                                : "Log set \(workingDone + 1)"))
-                            .font(.system(size: 17, weight: .heavy))
-                            .foregroundColor(allDone ? Theme.textGhost : .white)
-                            .frame(width: avail * (1.7 / totalFlex), height: 54)
-                            .background(allDone ? Theme.card2 : Theme.pink)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .shadow(color: allDone ? .clear : Theme.pink.opacity(0.35), radius: 12, x: 0, y: 6)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(allDone)
+            // Action buttons
+            if isEditingDone {
+                Button {
+                    weightFieldFocused = false
+                    editingSetID = nil
+                    withAnimation(.spring(response: 0.35)) { expandedDoneIdx = nil }
+                } label: {
+                    Text("Done editing")
+                        .font(.system(size: 17, weight: .heavy))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.card2)
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
+                .buttonStyle(.plain)
+            } else {
+                GeometryReader { geo in
+                    let spacing: CGFloat = 10
+                    let totalFlex: CGFloat = 1.0 + 1.7
+                    let avail = geo.size.width - spacing
+                    HStack(spacing: spacing) {
+                        Button {
+                            logAllRemainingSets(in: idx)
+                        } label: {
+                            Text("Log all sets")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(allDone ? Theme.textGhost : Theme.text)
+                                .frame(width: avail * (1.0 / totalFlex), height: 54)
+                                .background(Theme.card2)
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(allDone)
+
+                        Button {
+                            logCurrentSet(in: idx)
+                        } label: {
+                            Text(allDone ? "All sets logged"
+                                 : (activeSet?.isWarmup == true
+                                    ? "Log warmup \(ex.completedWarmupCount + 1)"
+                                    : "Log set \(workingDone + 1)"))
+                                .font(.system(size: 17, weight: .heavy))
+                                .foregroundColor(allDone ? Theme.textGhost : .white)
+                                .frame(width: avail * (1.7 / totalFlex), height: 54)
+                                .background(allDone ? Theme.card2 : Theme.pink)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .shadow(color: allDone ? .clear : Theme.pink.opacity(0.35), radius: 12, x: 0, y: 6)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(allDone)
+                    }
+                }
+                .frame(height: 54)
             }
-            .frame(height: 54)
         }
         .padding(EdgeInsets(top: 20, leading: 16, bottom: 16, trailing: 16))
         .background(Theme.card)
@@ -2057,12 +2086,25 @@ struct WorkoutSessionView: View {
             }
             Spacer()
             if !skipped {
-                Text("\(ex.completedWorkingCount) sets").font(.system(size: 12)).foregroundColor(Theme.textBody)
+                HStack(spacing: 8) {
+                    Text("\(ex.completedWorkingCount) sets")
+                        .font(.system(size: 12)).foregroundColor(Theme.textBody)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.textGhost)
+                }
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(skipped ? Theme.card : Theme.mint.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !skipped else { return }
+            withAnimation(.spring(response: 0.35)) {
+                expandedDoneIdx = expandedDoneIdx == idx ? nil : idx
+            }
+        }
     }
 
     private func upcomingRow(idx: Int) -> some View {
