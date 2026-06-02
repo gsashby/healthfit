@@ -3,6 +3,7 @@
 //  Healthfit Watch Watch App — live heart rate + elapsed timer during a workout.
 //
 
+import Combine
 import SwiftUI
 
 struct WatchActiveWorkoutView: View {
