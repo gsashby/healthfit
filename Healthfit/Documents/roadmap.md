@@ -272,9 +272,11 @@ Phase 8 (App Store) → depends on all phases complete
 
 ## Outstanding Prototype Items
 
-| Location | Shortcut | Production fix |
+All known prototype shortcuts have been resolved. ✅
+
+| Location | Shortcut | Resolution |
 |---|---|---|
-| `MockData.foodPickerSuggestions` | Still used in `PhotoLogSheet` scanning phase | Replace with Vision → USDA results inline |
-| `PlanInputView` parsed card | Falls back to `MockData.parsedInput` on FM failure | Cache last real parse result |
-| Units | lbs/miles hardcoded throughout | `UserDefaults`-backed unit preference |
-| Preferred workout time | Not captured | Add to Settings; drive notification scheduling |
+| `PhotoLogSheet` | Used `MockData.foodPickerSuggestions`; was never reachable | Removed — real camera flow (`CameraPickerView → Vision → FoodSearchView`) already correct |
+| `PlanInputView` parsed card | Pre-populated with `MockData.parsedInput` | `parsedRows` now starts empty; card only appears while parsing or after real FM results |
+| `WorkoutSummaryView` Est. 1RM | Hardcoded `lbs` suffix | Now uses `appState.displayWeight()` + `appState.weightUnit` |
+| Preferred workout time | Not captured | Added to Settings — drives notification scheduling (Phase 7) |
