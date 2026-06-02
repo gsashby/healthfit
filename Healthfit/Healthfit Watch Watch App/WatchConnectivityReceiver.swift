@@ -30,6 +30,12 @@ struct WorkoutSyncPayload: Codable, Equatable {
     var source: String   // "phone" | "watch"
 }
 
+struct WatchVital {
+    let label: String
+    let value: String
+    let unit: String?
+}
+
 // Today's planned workout (pushed on app load from TodayView).
 struct WatchWorkoutData {
     let workoutName: String
@@ -40,6 +46,7 @@ struct WatchWorkoutData {
     let readinessLabel: String
     let kcalTarget: Int
     let isAdjusted: Bool
+    let vitals: [WatchVital]
 }
 
 final class WatchConnectivityReceiver: NSObject, ObservableObject {
@@ -78,11 +85,18 @@ final class WatchConnectivityReceiver: NSObject, ObservableObject {
            let state  = context["readinessState"] as? String,
            let score  = context["readinessScore"] as? Int,
            let label  = context["readinessLabel"] as? String {
+            let vitals: [WatchVital] = (context["vitals"] as? [[String: Any]] ?? [])
+                .compactMap { d in
+                    guard let l = d["label"] as? String,
+                          let v = d["value"] as? String else { return nil }
+                    return WatchVital(label: l, value: v, unit: d["unit"] as? String)
+                }
             workout = WatchWorkoutData(
                 workoutName: name, workoutMeta: meta, exercises: exs,
                 readinessState: state, readinessScore: score, readinessLabel: label,
                 kcalTarget: context["kcalTarget"] as? Int ?? 0,
-                isAdjusted: context["isAdjusted"] as? Bool ?? false
+                isAdjusted: context["isAdjusted"] as? Bool ?? false,
+                vitals: vitals
             )
         }
         // Active workout sync (also stored in applicationContext)

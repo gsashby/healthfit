@@ -20,6 +20,12 @@ import UserNotifications
 
 // MARK: - WatchConnectivityService
 
+struct WatchVital: Codable {
+    let label: String
+    let value: String
+    let unit: String?
+}
+
 struct WatchWorkoutPayload: Codable {
     let workoutName: String
     let workoutMeta: String
@@ -29,6 +35,7 @@ struct WatchWorkoutPayload: Codable {
     let readinessLabel: String
     let kcalTarget: Int
     let isAdjusted: Bool
+    var vitals: [WatchVital]
 }
 
 // Shared workout-sync types — duplicated in WatchConnectivityReceiver.swift
@@ -485,6 +492,7 @@ final class AppState: ObservableObject {
 
     @Published var planLocked: Bool = UserDefaults.standard.bool(forKey: "planLocked")
     @Published var todaySessionAccepted: Bool = false
+    @Published var completedWorkoutSummary: CompletedWorkoutSummary? = nil
     @Published var todayForcesOriginalPlan: Bool = false
     @Published var needsNewWeekPlan: Bool = false
 
@@ -620,6 +628,7 @@ final class AppState: ObservableObject {
                            weightLb: 0, goalWeightLb: 0, description: "")
         planLocked = false
         todaySessionAccepted = false
+        completedWorkoutSummary = nil
         todayForcesOriginalPlan = false
         needsNewWeekPlan = false
         currentPlan = MockData.hybridWeek
@@ -938,6 +947,7 @@ final class AppState: ObservableObject {
             sessions: todaySessions
         )
         todaySessionAccepted = false
+        completedWorkoutSummary = nil
     }
 
     func swapDays(a: Int, b: Int) {
@@ -976,6 +986,7 @@ final class AppState: ObservableObject {
 
         // Reset daily state for the new week
         todaySessionAccepted = false
+        completedWorkoutSummary = nil
         todayForcesOriginalPlan = false
         planLocked = false
         UserDefaults.standard.set(false, forKey: "planLocked")
@@ -1020,8 +1031,11 @@ final class AppState: ObservableObject {
         }
     }
 
-    func syncToWatch(readiness: ReadinessState, score: Int) {
+    func syncToWatch(readiness: ReadinessState, score: Int, vitals: [Vital] = []) {
         let adj = adjustedTodayWorkout(readiness: readiness)
+        let watchVitals = vitals.prefix(3).map {
+            WatchVital(label: $0.label, value: $0.value, unit: $0.unit)
+        }
         let payload = WatchWorkoutPayload(
             workoutName: adj.name,
             workoutMeta: adj.meta,
@@ -1030,7 +1044,8 @@ final class AppState: ObservableObject {
             readinessScore: score,
             readinessLabel: readiness.label,
             kcalTarget: adj.kcalTarget,
-            isAdjusted: adj.tag == "Adjusted"
+            isAdjusted: adj.tag == "Adjusted",
+            vitals: Array(watchVitals)
         )
         watchService.send(payload)
     }

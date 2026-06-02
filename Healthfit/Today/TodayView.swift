@@ -18,7 +18,7 @@ struct TodayView: View {
 
     // 5.3 — proactive nudges
     @State private var enhancedReasoning: String? = nil
-    @State private var coachNudge: String? = nil
+    @State private var coachInsight: String? = nil
     @State private var weekSummaryText: String? = nil
 
     // Live HealthKit data is suppressed when user taps "Keep original".
@@ -68,14 +68,16 @@ struct TodayView: View {
                     header
                     primaryGoalChip
                     if appState.needsNewWeekPlan { weekSummaryCard }
+                    coachInsightCard
                     watchDataBanner
                     readinessCard
                     vitalsRow
-                    workoutCard
-                    reasoningCard
+                    if !appState.todaySessionAccepted {
+                        workoutCard
+                        reasoningCard
+                    }
                     actionsRow
                     nutritionCard
-                    nudgeCard
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 28)
@@ -106,7 +108,8 @@ struct TodayView: View {
             // Push today's workout to the Watch after any readiness update.
             appState.syncToWatch(
                 readiness: activeReadiness,
-                score: readinessService.latestData?.score ?? 0
+                score: readinessService.latestData?.score ?? 0,
+                vitals: readinessService.latestData?.vitals ?? []
             )
 
             // MARK: Phase 6 — schedule notifications
@@ -148,23 +151,14 @@ struct TodayView: View {
                 snapshot.reasoning, userName: name, state: activeReadiness
             )
 
-            // 2. Nutrition nudge based on today's logged meals vs targets.
-            let kcalLogged    = appState.todayFoodLog.reduce(0) { $0 + $1.kcal }
-            let proteinLogged = appState.todayFoodLog.reduce(0) { $0 + $1.macros.proteinG }
-            let nudgeKind = appState.currentPlan.days
-                .first(where: { $0.isToday })?
-                .sessions.first(where: { $0.kind == .lift || $0.kind == .run })?
-                .kind
-            let n = await fmService.generateCoachNudge(
-                kcalLogged: kcalLogged,
-                kcalTarget: snapshot.kcalTarget,
-                proteinLoggedG: proteinLogged,
-                proteinTargetG: snapshot.macros.proteinG,
-                sessionKind: nudgeKind == .lift ? "strength training"
-                           : nudgeKind == .run  ? "running" : "rest / recovery",
-                userName: name
+            // 2. Daily coach insight — vitals-aware check-in.
+            let insight = await fmService.generateCoachInsight(
+                userName: name,
+                state: activeReadiness,
+                vitals: snapshot.vitals,
+                workoutSessionName: snapshot.workoutName
             )
-            if !n.isEmpty { coachNudge = n }
+            if !insight.isEmpty { coachInsight = insight }
 
             // 3. End-of-week summary (only when the week has just rolled over).
             if appState.needsNewWeekPlan {
@@ -366,7 +360,9 @@ struct TodayView: View {
 
     private var actionsRow: some View {
         VStack(spacing: 8) {
-            if appState.todaySessionAccepted {
+            if appState.todaySessionAccepted, let summary = appState.completedWorkoutSummary {
+                completedWorkoutSummaryCard(summary: summary)
+            } else if appState.todaySessionAccepted {
                 PrimaryButton(title: "Workout logged ✓", tint: Theme.green, action: {})
                     .disabled(true)
             } else {
@@ -378,26 +374,160 @@ struct TodayView: View {
                 ) {
                     showWorkoutSession = true
                 }
-            }
-            HStack(spacing: 8) {
-                if snapshot.state == .red && !appState.todaySessionAccepted {
-                    SecondaryButton(title: "Full rest day") {
-                        appState.setFullRestDay()
+                HStack(spacing: 8) {
+                    if snapshot.state == .red {
+                        SecondaryButton(title: "Full rest day") {
+                            appState.setFullRestDay()
+                        }
+                    } else {
+                        SecondaryButton(title: "Modify", action: {})
                     }
-                } else {
-                    SecondaryButton(title: "Modify", action: {})
-                }
 
-                if snapshot.state == .green {
-                    SecondaryButton(title: "Move to tomorrow") {
-                        appState.moveTodayToTomorrow()
+                    if snapshot.state == .green {
+                        SecondaryButton(title: "Move to tomorrow") {
+                            appState.moveTodayToTomorrow()
+                        }
+                    } else {
+                        SecondaryButton(
+                            title: appState.todayForcesOriginalPlan ? "Restore adjustment" : "Keep original"
+                        ) {
+                            appState.todayForcesOriginalPlan.toggle()
+                        }
                     }
-                } else {
-                    SecondaryButton(
-                        title: appState.todayForcesOriginalPlan ? "Restore adjustment" : "Keep original"
-                    ) {
-                        appState.todayForcesOriginalPlan.toggle()
+                }
+            }
+        }
+    }
+
+    // MARK: Completed workout summary card
+
+    private func completedWorkoutSummaryCard(summary: CompletedWorkoutSummary) -> some View {
+        let mins = summary.elapsedSeconds / 60
+        let secs = summary.elapsedSeconds % 60
+        let durationStr = String(format: "%d:%02d", mins, secs)
+
+        return VStack(alignment: .leading, spacing: 14) {
+
+            // Header
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(Theme.green.opacity(0.15))
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(Theme.green)
+                }
+                .frame(width: 34, height: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(summary.sessionName)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(1)
+                    Text("Completed")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Theme.green)
+                }
+                Spacer()
+            }
+
+            // Stats row
+            HStack(spacing: 0) {
+                summaryStatPill(icon: "timer", color: Theme.blue, value: durationStr, label: "Duration")
+                if let hr = summary.avgHR {
+                    Rectangle().fill(Theme.separator).frame(width: 1, height: 36)
+                    summaryStatPill(icon: "heart.fill", color: Theme.red, value: "\(hr)", label: "Avg BPM")
+                }
+                Rectangle().fill(Theme.separator).frame(width: 1, height: 36)
+                summaryStatPill(icon: "flame.fill", color: Theme.orange, value: "\(summary.kcalBurned)", label: "Cal")
+            }
+            .background(Theme.card2)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            // Exercise highlights (strength sessions only)
+            let doneExercises = summary.exercises.filter { !$0.wasSkipped && !$0.loggedSets.isEmpty }
+            if !doneExercises.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Session highlights")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(Theme.textGhost)
+                        .tracking(1)
+
+                    ForEach(doneExercises, id: \.name) { ex in
+                        workingSetsHighlight(ex: ex)
                     }
+                }
+            }
+        }
+        .padding(18)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func summaryStatPill(icon: String, color: Color, value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(Theme.text)
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Theme.textGhost)
+                .tracking(0.5)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+
+    private func workingSetsHighlight(ex: CompletedExerciseSummary) -> some View {
+        let working = ex.loggedSets.filter { !$0.isWarmup }
+        let weights = working.map { appState.displayWeight($0.weightLbs) }
+        let unit = appState.weightUnit
+
+        let weightStr: String = {
+            guard !weights.isEmpty else { return "—" }
+            let formatted = weights.map { v -> String in
+                v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))" : String(format: "%.1f", v)
+            }
+            if Set(formatted).count == 1 { return "\(formatted[0]) \(unit)" }
+            return formatted.joined(separator: "/") + " \(unit)"
+        }()
+
+        let repStr: String = {
+            let reps = working.map(\.reps)
+            guard !reps.isEmpty else { return "" }
+            if Set(reps).count == 1 { return "× \(reps[0]) reps" }
+            return "× " + reps.map { "\($0)" }.joined(separator: "/") + " reps"
+        }()
+
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundColor(Theme.green.opacity(0.6))
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ex.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                HStack(spacing: 6) {
+                    Text("\(working.count) set\(working.count == 1 ? "" : "s")")
+                        .foregroundColor(Theme.textMuted)
+                    if !weightStr.isEmpty {
+                        Text("·").foregroundColor(Theme.textGhost)
+                        Text(weightStr).foregroundColor(Theme.textMuted)
+                    }
+                    if !repStr.isEmpty {
+                        Text(repStr).foregroundColor(Theme.textMuted)
+                    }
+                }
+                .font(.system(size: 12))
+                if let rm = ex.bestOneRM {
+                    let displayRM = appState.displayWeight(rm)
+                    let rmStr = displayRM.truncatingRemainder(dividingBy: 1) == 0
+                        ? "\(Int(displayRM.rounded()))" : String(format: "%.1f", displayRM)
+                    Text("Est. 1RM \(rmStr) \(unit)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Theme.blue)
                 }
             }
         }
@@ -429,35 +559,42 @@ struct TodayView: View {
         .padding(.top, 6)
     }
 
-    // MARK: Coach nudge (5.3)
+    // MARK: Coach insight (5.3)
 
-    private var nudgeFallbackText: String {
-        let logged = appState.todayFoodLog
-        guard !logged.isEmpty else {
-            return "No meals logged yet — head to the Eat tab to start tracking your nutrition."
-        }
-        let kcalLogged   = logged.reduce(0) { $0 + $1.kcal }
-        let proteinLogged = logged.reduce(0) { $0 + $1.macros.proteinG }
-        let kcalTarget    = snapshot.kcalTarget
-        let proteinTarget = snapshot.macros.proteinG
-        let proteinGap    = proteinTarget - proteinLogged
-        let kcalGap       = kcalTarget - kcalLogged
+    private var coachInsightFallback: String {
+        let hrv   = snapshot.vitals.first(where: { $0.label == "HRV" })
+        let sleep = snapshot.vitals.first(where: { $0.label == "Sleep" })
+        let rhr   = snapshot.vitals.first(where: { $0.label == "Resting HR" })
 
-        if proteinGap > 40 {
-            return "You're \(proteinGap)g short on protein — a high-protein meal or shake will hit the spot."
-        } else if kcalGap > 500 {
-            return "You've logged \(kcalLogged) of \(kcalTarget) kcal. Keep fuelling to hit your target."
-        } else if proteinGap <= 10 && kcalGap <= 150 {
-            return "Nutrition is on point today — protein and calories are right on target."
-        } else {
-            return "\(kcalLogged) kcal and \(proteinLogged)g protein logged. \(max(0, kcalGap)) kcal and \(max(0, proteinGap))g protein still to go."
+        switch snapshot.state {
+        case .red:
+            if hrv?.trendDir == .down {
+                return "HRV is trending down (\(hrv?.trend ?? "below baseline")), which is a signal your nervous system is under extra load — stress, hard training, or poor sleep can all cause this. Today is a perfect day to prioritise rest and light movement. You'll recover faster by working with your body, not against it."
+            } else if sleep?.trendDir == .down {
+                return "Sleep was shorter than ideal last night (\(sleep?.value ?? "reduced")), and your body is feeling the impact. Focus on recovery today — eat well, reduce stress where you can, and aim for an earlier bedtime. Rest is as important as any workout."
+            }
+            return "Your body is asking for a recovery day today, and that's completely normal — it's part of the process. Keep movement gentle, stay hydrated, and let your system recharge. You'll come back stronger."
+        case .yellow:
+            if hrv?.trendDir == .down, let rhrVital = rhr, rhrVital.trendDir == .down {
+                return "HRV is slightly below your norm and resting HR is nudging up — classic signs your body is adapting to recent training load. We've trimmed today's intensity accordingly. Consistency at a slightly reduced effort still builds fitness and keeps you healthy long-term."
+            } else if hrv?.trendDir == .down {
+                return "HRV is a touch below baseline (\(hrv?.trend ?? "slightly low")), suggesting your body is still catching up from recent effort. Today's plan is dialled back to match — give it your best at the adjusted load and trust the process."
+            }
+            return "Metrics are slightly below your personal norm today, so intensity is dialled back a notch. That's smart, not soft — consistent moderate effort beats boom-and-bust every time. Keep showing up."
+        case .green:
+            if hrv?.trendDir == .up {
+                return "HRV is trending up (\(hrv?.trend ?? "above baseline")) — a reliable sign your training is landing well and recovery is on track. Sleep looks solid and resting HR is healthy. Your body is primed today; go make the most of it."
+            } else if let rhrVital = rhr, rhrVital.trendDir == .flat || rhrVital.trendDir == .up {
+                return "Your readiness metrics are in a great range today — HRV, sleep, and resting HR are all where you want them. This is what consistent training and recovery looks like. Trust your preparation and attack today's session with confidence."
+            }
+            return "Everything is looking solid today. Your metrics are in a healthy range and your body is ready to perform. Focus, commit to the work, and enjoy the session."
         }
     }
 
-    private var nudgeCard: some View {
+    private var coachInsightCard: some View {
         ReasoningCallout(
             title: "Coach.",
-            message: coachNudge ?? nudgeFallbackText,
+            message: coachInsight ?? coachInsightFallback,
             tint: Theme.purple,
             iconText: "C"
         )
@@ -788,6 +925,7 @@ struct WorkoutSessionView: View {
 
     @State private var elapsed: Int = 0
     @State private var currentHR: Int? = nil
+    @State private var hrSamples: [Int] = []
     @State private var exercises: [WorkoutExercise] = []
     @State private var isSaving = false
     @State private var showSummary = false
@@ -851,7 +989,10 @@ struct WorkoutSessionView: View {
         }
         .task {
             while !Task.isCancelled {
-                if let hr = await readinessService.fetchCurrentHeartRate() { currentHR = hr }
+                if let hr = await readinessService.fetchCurrentHeartRate() {
+                    currentHR = hr
+                    hrSamples.append(hr)
+                }
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
             }
         }
@@ -1675,6 +1816,27 @@ struct WorkoutSessionView: View {
             return speedMs * Double(elapsed)
         }()
 
+        let avgHR: Int? = hrSamples.isEmpty ? nil : hrSamples.reduce(0, +) / hrSamples.count
+        let summary = CompletedWorkoutSummary(
+            sessionName: effectiveName,
+            kind: session.kind,
+            elapsedSeconds: elapsed,
+            kcalBurned: kcalBurned,
+            avgHR: avgHR,
+            exercises: isLift ? exercises.map { ex in
+                let best = ex.workingSets
+                    .filter { $0.isLogged && !$0.isSkipped && $0.weightLbs > 0 && $0.completedReps > 0 }
+                    .map { $0.weightLbs * (1 + Double($0.completedReps) / 30) }
+                    .max()
+                return CompletedExerciseSummary(
+                    name: ex.name,
+                    wasSkipped: ex.isSkipped,
+                    loggedSets: ex.sets.filter(\.isLogged).map { (reps: $0.completedReps, weightLbs: $0.weightLbs, isWarmup: $0.isWarmup) },
+                    bestOneRM: (best ?? 0) > 0 ? best : nil
+                )
+            } : []
+        )
+
         Task {
             Analytics.workoutCompleted(
                 kind: session.kind.rawValue,
@@ -1687,6 +1849,7 @@ struct WorkoutSessionView: View {
                 energyKcal: kcal > 1 ? kcal : nil,
                 distanceMeters: distanceMeters
             )
+            appState.completedWorkoutSummary = summary
             appState.acceptTodaySession()
             dismiss()
         }
