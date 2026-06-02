@@ -31,10 +31,34 @@ struct WatchWorkoutPayload: Codable {
     let isAdjusted: Bool
 }
 
+// Shared workout-sync types — duplicated in WatchConnectivityReceiver.swift
+struct SyncSet: Codable, Equatable {
+    let targetReps: Int
+    var completedReps: Int
+    var weightLbs: Double
+    var isLogged: Bool
+}
+
+struct SyncExercise: Codable, Equatable {
+    let name: String
+    var sets: [SyncSet]
+}
+
+struct WorkoutSyncPayload: Codable, Equatable {
+    let workoutName: String
+    var exercises: [SyncExercise]
+    var exerciseIndex: Int
+    var elapsed: Int
+    var isActive: Bool
+    var source: String   // "phone" | "watch"
+}
+
 @MainActor
 final class WatchConnectivityService: NSObject, ObservableObject {
 
     @Published var isPaired: Bool = false
+
+    var onWorkoutUpdate: ((WorkoutSyncPayload) -> Void)?
 
     override init() {
         super.init()
@@ -50,6 +74,21 @@ final class WatchConnectivityService: NSObject, ObservableObject {
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         try? WCSession.default.updateApplicationContext(dict)
     }
+
+    func sendWorkoutSync(_ payload: WorkoutSyncPayload) {
+        guard WCSession.default.activationState == .activated,
+              WCSession.default.isPaired else { return }
+        guard let data = try? JSONEncoder().encode(payload),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        let message = ["workoutSync": dict]
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            WCSession.default.transferUserInfo(message)
+        }
+        // Also push to applicationContext so Watch sees it on next launch
+        try? WCSession.default.updateApplicationContext(dict)
+    }
 }
 
 extension WatchConnectivityService: WCSessionDelegate {
@@ -61,6 +100,24 @@ extension WatchConnectivityService: WCSessionDelegate {
     }
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
     nonisolated func sessionDidDeactivate(_ session: WCSession) { session.activate() }
+
+    nonisolated func session(_ session: WCSession,
+                             didReceiveMessage message: [String: Any]) {
+        guard let dict = message["workoutSync"] as? [String: Any],
+              let data = try? JSONSerialization.data(withJSONObject: dict),
+              let payload = try? JSONDecoder().decode(WorkoutSyncPayload.self, from: data)
+        else { return }
+        Task { @MainActor in self.onWorkoutUpdate?(payload) }
+    }
+
+    nonisolated func session(_ session: WCSession,
+                             didReceiveUserInfo userInfo: [String: Any]) {
+        guard let dict = userInfo["workoutSync"] as? [String: Any],
+              let data = try? JSONSerialization.data(withJSONObject: dict),
+              let payload = try? JSONDecoder().decode(WorkoutSyncPayload.self, from: data)
+        else { return }
+        Task { @MainActor in self.onWorkoutUpdate?(payload) }
+    }
 }
 
 // MARK: - AuthService
@@ -953,6 +1010,15 @@ final class AppState: ObservableObject {
     // MARK: - Watch sync
 
     let watchService = WatchConnectivityService()
+
+    @Published var pendingWatchWorkoutUpdate: WorkoutSyncPayload? = nil
+
+    func setupWatchSync() {
+        watchService.onWorkoutUpdate = { [weak self] payload in
+            guard payload.source != "phone" else { return }
+            self?.pendingWatchWorkoutUpdate = payload
+        }
+    }
 
     func syncToWatch(readiness: ReadinessState, score: Int) {
         let adj = adjustedTodayWorkout(readiness: readiness)

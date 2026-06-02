@@ -624,7 +624,7 @@ struct FlowLayout: Layout {
 
 // ─── Data models ──────────────────────────────────────────────────────────────
 
-private struct WorkoutSet: Identifiable {
+private struct WorkoutSet: Identifiable, Equatable {
     let id = UUID()
     let targetReps: String
     var weightLbs: Double = 0
@@ -645,7 +645,7 @@ private struct WorkoutSet: Identifiable {
     }
 }
 
-private struct WorkoutExercise: Identifiable {
+private struct WorkoutExercise: Identifiable, Equatable {
     let id = UUID()
     let name: String
     let description: String
@@ -791,6 +791,7 @@ struct WorkoutSessionView: View {
     @State private var exercises: [WorkoutExercise] = []
     @State private var isSaving = false
     @State private var showSummary = false
+    @State private var editingSetID: UUID? = nil
     @FocusState private var weightFieldFocused: Bool
 
     private let startDate = Date()
@@ -835,6 +836,18 @@ struct WorkoutSessionView: View {
             if isLift { exercises = buildExercises(from: chips) }
             Analytics.workoutStarted(kind: session.kind.rawValue,
                                      readinessState: readiness.rawValue)
+            if isLift {
+                appState.watchService.sendWorkoutSync(toSyncPayload(isActive: true))
+            }
+        }
+        .onChange(of: exercises) { _, _ in
+            guard isLift else { return }
+            appState.watchService.sendWorkoutSync(toSyncPayload(isActive: true))
+        }
+        .onChange(of: appState.pendingWatchWorkoutUpdate) { _, update in
+            guard let update, update.source == "watch", isLift else { return }
+            applyWatchUpdate(update)
+            appState.pendingWatchWorkoutUpdate = nil
         }
         .task {
             while !Task.isCancelled {
@@ -845,8 +858,51 @@ struct WorkoutSessionView: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { weightFieldFocused = false }
+                Button("Done") { weightFieldFocused = false; editingSetID = nil }
                     .fontWeight(.semibold)
+            }
+        }
+    }
+
+    // MARK: - Watch sync helpers
+
+    private func toSyncPayload(isActive: Bool) -> WorkoutSyncPayload {
+        let activeIdx = exercises.firstIndex(where: { !$0.isFullyLogged }) ?? exercises.count
+        return WorkoutSyncPayload(
+            workoutName: effectiveName,
+            exercises: exercises.map { ex in
+                SyncExercise(
+                    name: ex.name,
+                    sets: ex.workingSets.map { s in
+                        SyncSet(targetReps: Int(s.targetReps) ?? 8,
+                                completedReps: s.completedReps,
+                                weightLbs: s.weightLbs,
+                                isLogged: s.isLogged)
+                    }
+                )
+            },
+            exerciseIndex: activeIdx,
+            elapsed: elapsed,
+            isActive: isActive,
+            source: "phone"
+        )
+    }
+
+    private func applyWatchUpdate(_ payload: WorkoutSyncPayload) {
+        for (ei, syncEx) in payload.exercises.enumerated() {
+            guard ei < exercises.count else { break }
+            let workingIdxs = exercises[ei].sets.indices.filter {
+                !exercises[ei].sets[$0].isWarmup && !exercises[ei].sets[$0].isSkipped
+            }
+            for (si, syncSet) in syncEx.sets.enumerated() {
+                guard si < workingIdxs.count else { break }
+                let idx = workingIdxs[si]
+                exercises[ei].sets[idx].weightLbs    = syncSet.weightLbs
+                exercises[ei].sets[idx].completedReps = syncSet.completedReps
+                if syncSet.isLogged && !exercises[ei].sets[idx].isLogged {
+                    exercises[ei].sets[idx].isLogged = true
+                    exercises[ei].sets[idx].rir = 2  // auto-rate so RIR picker doesn't block
+                }
             }
         }
     }
@@ -1145,13 +1201,23 @@ struct WorkoutSessionView: View {
         let set = exercises[exIdx].sets[setIdx]
         let isDone = set.isLogged
         let isSkipped = set.isSkipped
+        let isEditing = isDone && editingSetID == set.id
         let displayNum = exercises[exIdx].setDisplayNum(at: setIdx)
         let valueColor: Color = isDone ? Theme.mint : (isActive ? Theme.text : Theme.textGhost)
 
         return HStack(spacing: 14) {
             // Status indicator
             Group {
-                if isDone {
+                if isDone && isEditing {
+                    ZStack {
+                        Circle().fill(Theme.card2)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundColor(Theme.textMuted)
+                    }
+                    .frame(width: 26, height: 26)
+                    .onTapGesture { weightFieldFocused = false; editingSetID = nil }
+                } else if isDone {
                     ZStack {
                         Circle().fill(Theme.mint)
                         Image(systemName: "checkmark")
@@ -1181,7 +1247,7 @@ struct WorkoutSessionView: View {
             .frame(width: 32, alignment: .center)
 
             // Reps column
-            if isActive {
+            if isActive || isEditing {
                 inlineField(
                     binding: Binding<String>(
                         get: { String(exercises[exIdx].sets[setIdx].completedReps) },
@@ -1203,7 +1269,7 @@ struct WorkoutSessionView: View {
             }
 
             // Weight column
-            if isActive {
+            if isActive || isEditing {
                 inlineField(
                     binding: Binding<String>(
                         get: {
@@ -1246,12 +1312,16 @@ struct WorkoutSessionView: View {
                 .opacity(isSkipped ? 0.5 : 1)
             }
         }
-        .padding(.vertical, isActive ? 12 : 13)
+        .padding(.vertical, isActive || isEditing ? 12 : 13)
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isActive ? Color.white.opacity(0.035) : Color.clear)
+                .fill((isActive || isEditing) ? Color.white.opacity(0.035) : Color.clear)
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isDone && !isEditing { editingSetID = set.id }
+        }
     }
 
     /// Editable inline field used by the active set row (large bold numeric input + sub-label).
@@ -1572,6 +1642,7 @@ struct WorkoutSessionView: View {
 
     private func finishWorkout() {
         isSaving = true
+        if isLift { appState.watchService.sendWorkoutSync(toSyncPayload(isActive: false)) }
 
         // Persist working-set weights so future sessions get suggested starting weights.
         if isLift {

@@ -7,8 +7,25 @@ import SwiftUI
 
 struct WatchRootView: View {
     @EnvironmentObject var receiver: WatchConnectivityReceiver
+    @State private var autoLaunchWorkout = false
 
     var body: some View {
+        // Invisible nav link that fires when phone starts a workout
+        NavigationLink(isActive: $autoLaunchWorkout) {
+            WatchActiveWorkoutView(
+                workoutName: receiver.activeWorkout?.workoutName
+                             ?? receiver.workout?.workoutName ?? "Workout",
+                exercises: receiver.workout?.exercises ?? []
+            )
+        } label: { EmptyView() }
+        .onChange(of: receiver.activeWorkout) { _, payload in
+            if let payload, payload.isActive, payload.source == "phone" {
+                autoLaunchWorkout = true
+            } else if payload?.isActive == false {
+                autoLaunchWorkout = false
+            }
+        }
+
         if let data = receiver.workout {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
@@ -16,7 +33,8 @@ struct WatchRootView: View {
                     Divider()
                     workoutSummary(data)
                     NavigationLink {
-                        WatchActiveWorkoutView(workoutName: data.workoutName)
+                        WatchActiveWorkoutView(workoutName: data.workoutName,
+                                               exercises: data.exercises)
                     } label: {
                         Label("Start", systemImage: "play.fill")
                             .font(.system(size: 14, weight: .semibold))

@@ -54,6 +54,12 @@ struct HealthFitApp: App {
         CrashReporter.configure()
     }
 
+    // Called once AppState is ready — wires Watch sync callback.
+    // Using onAppear on the root view to avoid SwiftUI init-order issues.
+    private func setupServices() {
+        appState.setupWatchSync()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -62,7 +68,10 @@ struct HealthFitApp: App {
                 .environmentObject(readinessService)
                 .environmentObject(fmService)
                 .preferredColorScheme(.dark)
-                .onAppear { appState.advanceWeekIfNeeded() }
+                .onAppear {
+                    appState.advanceWeekIfNeeded()
+                    setupServices()
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .healthfitSwitchTab)) { note in
                     if let tab = note.object as? Int {
                         appState.selectedTab = tab
