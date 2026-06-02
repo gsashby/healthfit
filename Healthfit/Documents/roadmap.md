@@ -173,7 +173,7 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 
 ### 8.1 Assets & Branding
 - App icon configured in asset catalog (`healthfit_icon.svg` → PNG sizes) ✅
-- Launch screen — pending
+- **Launch screen** ✅ — `LaunchImage.imageset` (3-scale kettlebell icon @1x/2x/3x) + `LaunchBackground.colorset` (pure black); wired via `INFOPLIST_KEY_UILaunchScreen_*` build settings in both Debug and Release configs
 - App Store screenshots — pending
 
 ### 8.2 Legal & Compliance
@@ -204,6 +204,38 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 **Crash reporting** (`CrashReporter.swift`) — no-op scaffold with wiring instructions for Sentry and Firebase Crashlytics; `CrashReporter.configure()` called in `HealthFitApp.init()`
 
 **Analytics** (`Analytics.swift`) — no-op event bus (prints in DEBUG) with wiring instructions for TelemetryDeck and PostHog; 6 events fired: `onboarding_completed`, `plan_generated`, `workout_started`, `workout_completed`, `food_logged`, `coach_message_sent`
+
+---
+
+## Phase 9 — Today Screen Redesign & Workout UX Polish ✅
+
+### 9.1 Today Screen Redesign ✅
+
+New layout order (top → bottom): Header → Readiness → Coach → Today's Fuel → Session widget (or post-workout summary).
+
+- **Readiness card** — HRV, Sleep, and Resting HR vitals embedded inside the card below the score, separated by a hairline divider and vertical separators between columns; color-coded trend text (green/red/muted)
+- **Coach insight card** ✅ — moved from bottom to just below Readiness; now collapsible (purple "C" badge + chevron); vitals-aware rule-based fallback (reads HRV trend, sleep, RHR) plus `generateCoachInsight` FM prompt; text toggles with spring animation
+- **Today's Fuel card** ✅ — collapsible; calorie tracker (consumed / target, blue progress bar, "N kcal left") always visible in header; Carbs / Protein / Fat macros collapse beneath a hairline separator
+- **Session widget** ✅ — single collapsible card merging Today's Session, Why this session, and action buttons; collapsed state shows session name + meta + "N exercises · tap to expand" hint; expanded shows flow-wrapped exercise chips, inline reasoning with blue "i" badge, and action buttons
+- **Goal chip and standalone sections removed** — goal chip, watch data banner, week summary card, and standalone workout/reasoning/actions cards replaced by the session widget
+
+### 9.2 Workout Flow ✅
+
+- **Workout preview screen** (`WorkoutPreviewView`) ✅ — "View Workout" opens a dedicated preview sheet showing session name/duration, exercise chip list, and reasoning callout; "Start Workout" button pinned at bottom dismisses preview and opens `WorkoutSessionView` (uses `onDismiss` + `shouldStartWorkout` flag to chain sheets reliably)
+- **Tap-to-edit logged sets** ✅ — tapping a done set row (green checkmark) in an active exercise switches it to inline edit mode (weight + reps fields); checkmark becomes an X; tapping X or keyboard Done exits edit; keyboard Done button clears edit state
+- **Edit completed exercises** ✅ — tapping a done exercise row (pencil icon on right) expands it to the full set table in edit mode; cue reads "Editing completed exercise."; all logged set rows editable via tap-to-edit; "Done editing" button collapses back; tapping another done row swaps which one is open; skipped exercises are not expandable
+
+### 9.3 Post-Workout Summary ✅
+
+- **Post-workout summary card** ✅ — `CompletedWorkoutSummary` and `CompletedExerciseSummary` models in `Models.swift`; `AppState.completedWorkoutSummary` stores the summary after session ends (reset on day rollover / plan moves); HR samples collected every 5 s during workout, averaged for avg BPM; card replaces the session widget when workout is accepted
+- **Workout card + reasoning card hidden post-workout** ✅ — readiness, coach, and fuel cards remain; session widget replaced by summary
+- **Summary card collapsible** ✅ — header (checkmark, session name, "Completed") and stats row (duration, avg BPM, calories) always visible; "Session highlights" (per-exercise sets, weight, est. 1RM) toggle via chevron
+
+### 9.4 Watch Bug Fixes ✅
+
+- Replaced deprecated `NavigationLink(isActive:)` with `navigationDestination(isPresented:)` in `ContentView.swift` (watchOS 9+ requirement)
+- Fixed always-succeeds conditional cast `dict as? [String: Any]` in `WatchConnectivityReceiver.applySync` → `let syncDict = (dict["workoutSync"] as? [String: Any]) ?? dict`
+- Marked `WatchWorkoutController.parse(_:)` as `nonisolated` to resolve Swift 6 main-actor isolation warning
 
 ---
 
