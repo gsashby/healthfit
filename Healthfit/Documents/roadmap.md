@@ -174,7 +174,13 @@ HealthFit is a production-quality iOS app with a full five-tab layout (Today, Pl
 ### 8.1 Assets & Branding
 - App icon configured in asset catalog (`healthfit_icon.svg` → PNG sizes) ✅
 - **Launch screen** ✅ — `LaunchImage.imageset` (3-scale kettlebell icon @1x/2x/3x) + `LaunchBackground.colorset` (pure black); wired via `INFOPLIST_KEY_UILaunchScreen_*` build settings in both Debug and Release configs
-- App Store screenshots — pending
+- **App Store screenshots** ✅ — 5 screenshots captured at 1320×2868 px (iPhone 17 Pro Max, required 6.9" format); saved to `~/Desktop/HealthfitScreenshots/`; re-run with `bash Scripts/screenshots.sh`
+  - `01-Today-Readiness.png` — Today screen, readiness card + coach insight
+  - `02-Today-Session.png` — Today screen, session widget (scrolled)
+  - `03-Plan.png` — Plan tab
+  - `04-Eat.png` — Eat / nutrition tab
+  - `05-Coach.png` — Coach chat tab
+  - Screenshot infrastructure: `--screenshots` launch arg in `HealthFitApp` bypasses auth with demo data; `HealthfitUITests/ScreenshotTests.swift` drives 5 XCUITest cases
 
 ### 8.2 Legal & Compliance
 - **Privacy policy** ✅ — `Documents/privacy-policy.md`; covers HealthKit data use, on-device storage, USDA/Open Food Facts API calls (search terms only), on-device AI, no backend, export + deletion rights, GDPR/CCPA, health data disclaimer. Requires a hosted URL before App Store submission — replace contact placeholder and host on GitHub Pages or similar.
