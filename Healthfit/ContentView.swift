@@ -15,7 +15,7 @@ struct ContentView: View {
         ZStack {
             Theme.bg.ignoresSafeArea()
 
-            if authService.isAuthenticated && appState.hasOnboarded {
+            if HealthFitApp.isScreenshotMode || (authService.isAuthenticated && appState.hasOnboarded) {
                 MainTabView()
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
             } else {
