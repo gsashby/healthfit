@@ -49,9 +49,27 @@ struct HealthFitApp: App {
 
     private let notificationDelegate = AppNotificationDelegate()
 
+    static var isScreenshotMode: Bool {
+        CommandLine.arguments.contains("--screenshots")
+    }
+
     init() {
         UNUserNotificationCenter.current().delegate = notificationDelegate
         CrashReporter.configure()
+
+        if Self.isScreenshotMode {
+            // Inject demo state so the app launches straight into the main UI
+            // with realistic content for App Store screenshots.
+            let d = UserDefaults.standard
+            d.set(true,           forKey: "hasOnboarded")
+            d.set(true,           forKey: "watchConnected")
+            d.set(true,           forKey: "planLocked")
+            d.set("Gerald",       forKey: "userName")
+            d.set(50,             forKey: "userAge")
+            d.set("Male",         forKey: "userSex")
+            d.set(198.0,          forKey: "userWeightLb")
+            d.set(178.0,          forKey: "userGoalWeightLb")
+        }
     }
 
     // Called once AppState is ready — wires Watch sync callback.
