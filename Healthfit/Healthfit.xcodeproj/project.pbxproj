@@ -37,6 +37,10 @@
 		C56E9CB7E31E46B39B0A03B8 /* ReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC48B8AC6DE74F74B9CD8E1B /* ReadinessService.swift */; };
 		DECD4113A65E4614A9754423 /* FoundationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8ADD9E56734431DABDB79A6 /* FoundationModelService.swift */; };
 		F50BC017E9D64942A1474454 /* FoodDatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF848688D84E919178CBCE /* FoodDatabaseService.swift */; };
+		B000000000000000000000B0 /* HealthfitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B20C6F2FAA3F4A006180A4 /* HealthfitTests.swift */; };
+		B100000000000000000000B1 /* HealthfitUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A1 /* HealthfitUnitTests.swift */; };
+		B200000000000000000000B2 /* HealthfitSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000A2 /* HealthfitSystemTests.swift */; };
+		B300000000000000000000B3 /* HealthfitSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000000000000000000A3 /* HealthfitSecurityTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -108,6 +112,9 @@
 		39B20C6A2FAA3F4A006180A4 /* Healthfit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Healthfit.entitlements; sourceTree = "<group>"; };
 		39B20C6D2FAA3F4A006180A4 /* Healthfit.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Healthfit.xcodeproj; sourceTree = "<group>"; };
 		39B20C6F2FAA3F4A006180A4 /* HealthfitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthfitTests.swift; sourceTree = "<group>"; };
+		A100000000000000000000A1 /* HealthfitUnitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthfitUnitTests.swift; sourceTree = "<group>"; };
+		A200000000000000000000A2 /* HealthfitSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthfitSystemTests.swift; sourceTree = "<group>"; };
+		A300000000000000000000A3 /* HealthfitSecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthfitSecurityTests.swift; sourceTree = "<group>"; };
 		39B20C712FAA3F4A006180A4 /* HealthfitUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthfitUITests.swift; sourceTree = "<group>"; };
 		39B20C722FAA3F4A006180A4 /* HealthfitUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthfitUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		39B20C742FAA3F4A006180A4 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
@@ -157,6 +164,11 @@
 		39FF0DC82FCBA96900CE8375 /* Healthfit Watch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Healthfit Watch";
+			sourceTree = "<group>";
+		};
+		8361581866B643CCBBD83FFC /* HealthfitUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HealthfitUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -268,6 +280,9 @@
 			isa = PBXGroup;
 			children = (
 				39B20C6F2FAA3F4A006180A4 /* HealthfitTests.swift */,
+				A100000000000000000000A1 /* HealthfitUnitTests.swift */,
+				A200000000000000000000A2 /* HealthfitSystemTests.swift */,
+				A300000000000000000000A3 /* HealthfitSecurityTests.swift */,
 			);
 			path = HealthfitTests;
 			sourceTree = "<group>";
@@ -372,6 +387,9 @@
 			);
 			dependencies = (
 				398868242FAA395300609127 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				8361581866B643CCBBD83FFC /* HealthfitUITests */,
 			);
 			name = HealthfitUITests;
 			productName = HealthfitUITests;
@@ -578,6 +596,10 @@
 		398868142FAA395300609127 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				B000000000000000000000B0 /* HealthfitTests.swift in Sources */,
+				B100000000000000000000B1 /* HealthfitUnitTests.swift in Sources */,
+				B200000000000000000000B2 /* HealthfitSystemTests.swift in Sources */,
+				B300000000000000000000B3 /* HealthfitSecurityTests.swift in Sources */,
 			);
 		};
 		3988681E2FAA395300609127 /* Sources */ = {
